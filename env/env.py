@@ -69,13 +69,6 @@ class MicrogridEnv(gym.Env):
         - trade_result: 可选，电力和碳配额交易结果
         """
 
-        # 更新当前市场价格
-        if market_info:
-            self.elec_price_buy = market_info.get("elec_price_buy", 0.0) # 若是找不到健则设为0
-            self.elec_price_sell = market_info.get("elec_price_sell", 0.0)
-            self.carbon_price_buy = market_info.get("carbon_price_buy", 0.0)
-            self.carbon_price_sell = market_info.get("carbon_price_sell", 0.0)
-
         # 动作解包，使用新配置格式及对应额定功率
         EES = action[0] * self.config['EES']['P_rated']
         TES = action[1] * self.config['TES']['P_rated']
@@ -140,6 +133,10 @@ class MicrogridEnv(gym.Env):
 
         # 计算碳盈余
         C_n = ce_t * P_t + cg_t * (Q_CHP + GB) - self.config['c_MG']
+
+        # 新方式：调用市场定价函数（占位）
+        self.elec_price_buy, self.elec_price_sell, self.carbon_price_buy, self.carbon_price_sell = get_market_prices()
+
 
         # 计算交易cost
         trade_cost = self.elec_price_buy*max(0,P_n) + self.carbon_price_buy*max(0,C_n) - self.elec_price_sell*min(0,P_n) - self.carbon_price_sell*min(0,C_n)
