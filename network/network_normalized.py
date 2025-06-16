@@ -24,7 +24,8 @@ class network:
         """
         self.state_dim = state_dim
         self.action_dim_continuous = action_dim_continuous
-        self.action_dim_discrete = action_dim_discrete
+        # self.action_dim_discrete = action_dim_discrete
+        self.action_dim_discrete = 0
         self.action_bound = action_bound
         self.action_shift = action_shift
 
@@ -186,3 +187,5 @@ class network:
 
 
 
+if __name__=="__main__":
+    print("Imports worked!")

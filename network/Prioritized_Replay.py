@@ -1,10 +1,5 @@
 import numpy as np
 
-"""
-Code modified from:
-https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master/contents/5.2_Prioritized_Replay_DQN/RL_brain.py
-"""
-
 
 class SumTree(object):
     """
