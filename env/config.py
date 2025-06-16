@@ -124,8 +124,5 @@ MG_configs = {
     # 上级市场碳税
     "carbon_price_buy": 0.7,   # ¢/kg
     "carbon_price_sell": 0.35 # ¢/kg
-
-    
-
     
 }
