@@ -6,6 +6,7 @@ from env.config import MG_configs
 from network import network
 from network import Memory
 from datetime import datetime
+from FCSAC import get_market_prices
 import os
 
 
@@ -111,6 +112,23 @@ class SingleMGCSACTrainer:
             'PV': np.random.rand(episode_length).tolist(),
             'WT': np.random.rand(episode_length).tolist()
         }
+
+    def get_action_summary(self):
+        """
+        收集当前 MG 一轮中的供需、电价行为等，供中心计算使用
+        """
+        return {
+            'mg_id': self.mg_id,
+            'supply': self.env.get_current_supply(),
+            'demand': self.env.get_current_demand(),
+            'action': self.env.last_action,
+        }
+
+    def get_market_prices():
+        """
+        接收协调器计算出的 P2P 电价（每小时更新）
+        """
+        self.env.update_p2p_prices(price_dict)
 
     def train(self):
         print("开始训练...（此处略去训练细节）")
