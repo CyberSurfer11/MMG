@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+from collections import deque
 from env import MicrogridEnv
 from env.config import MG_configs
 from network import network
