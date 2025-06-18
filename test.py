@@ -1,96 +1,92 @@
 
+"""
+Demo: 3-MG (RG / CG / IG) Day-Ahead P2P electricity market clearing
+
+· 连续双向竞价 + 中点价撮合
+· 剩余电量走主网（ToU 购电价 / FiT 上网电价）
+· 画出每小时 P2P 买卖结算价与电网标杆价
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
-
 from collections import defaultdict
 from typing import List, Tuple, Dict
 
+
+# ----------------------------------------------------------------------
+# 1. 市场出清：连续双向竞价 + 中点价
+# ----------------------------------------------------------------------
 def da_market_clearing(
     buys:  List[Tuple[str, float, float]],   # (buyer_id,  bid_price,  quantity>0)
     sells: List[Tuple[str, float, float]],   # (seller_id, ask_price, quantity>0)
-    lambda_buy:  float,                      # ToU—从电网买电价  λtᵇ
-    lambda_sell: float                       # FiT—向电网卖电价  λtˢ
+    lambda_buy:  float,                      # ToU——从电网买电价
+    lambda_sell: float                       # FiT——向电网卖电价
 ) -> Dict[str, Dict[str, float]]:
-    """
-    执行 1 h DA P2P 市场出清。
-    返回：
-        {agent_id: {
-            'p2p_qty' : 已在 P2P 市场成交的电量  (买为 +, 卖为 −),
-            'p2p_cost': P2P 总支出(+)/收入(−)，已含撮合中点价，
-            'grid_qty': 与上级电网成交的电量   (买为 +, 卖为 −),
-            'grid_cost': 向电网支付(+)/收入(−)
-        }}
-    """
-    # ---- 1. 订单簿按价格排序 ----
+    """返回各主体在 P2P 与主电网的撮合结果。"""
     buy_book  = sorted(buys,  key=lambda x: -x[1])  # 价格高→低
     sell_book = sorted(sells, key=lambda x:  x[1])  # 价格低→高
 
-    # ---- 2. 初始化结果容器 ----
-    res = defaultdict(lambda: {'p2p_qty': 0.0, 'p2p_cost': 0.0,
-                               'grid_qty': 0.0, 'grid_cost': 0.0})
+    res = defaultdict(lambda: {
+        'p2p_qty':  0.0, 'p2p_cost':  0.0,
+        'grid_qty': 0.0, 'grid_cost': 0.0
+    })
 
-    b_idx = s_idx = 0  # 订单簿游标
-
-    # ---- 3. 循环撮合 ----
+    b_idx = s_idx = 0
+    # —— 1) P2P 撮合 ————————————————————————————
     while b_idx < len(buy_book) and s_idx < len(sell_book):
         b_id, b_price, b_qty = buy_book[b_idx]
         s_id, s_price, s_qty = sell_book[s_idx]
 
-        if b_price < s_price:      # 无法继续成交
+        if b_price < s_price:      # 无重叠，退出
             break
 
-        match_qty = min(b_qty, s_qty)
-        clr_price = 0.5 * (b_price + s_price)   # 中点价
+        qty   = min(b_qty, s_qty)
+        price = 0.5 * (b_price + s_price)
 
         # 记录买家
-        res[b_id]['p2p_qty']  += +match_qty
-        res[b_id]['p2p_cost'] += +clr_price * match_qty
-
+        res[b_id]['p2p_qty']  += +qty
+        res[b_id]['p2p_cost'] += +price * qty
         # 记录卖家
-        res[s_id]['p2p_qty']  += -match_qty
-        res[s_id]['p2p_cost'] += -clr_price * match_qty
+        res[s_id]['p2p_qty']  += -qty
+        res[s_id]['p2p_cost'] += -price * qty
 
         # 更新剩余量
-        buy_book[b_idx]  = (b_id, b_price, b_qty - match_qty)
-        sell_book[s_idx] = (s_id, s_price, s_qty - match_qty)
-
-        if buy_book[b_idx][2] == 0:   # 该买单撮合完
+        buy_book[b_idx]  = (b_id, b_price, b_qty - qty)
+        sell_book[s_idx] = (s_id, s_price, s_qty - qty)
+        if buy_book[b_idx][2] == 0:
             b_idx += 1
-        if sell_book[s_idx][2] == 0:  # 该卖单撮合完
+        if sell_book[s_idx][2] == 0:
             s_idx += 1
 
-    # ---- 4. 剩余量走电网 ----
+    # —— 2) 剩余量走主网 ————————————————————————
     for idx in range(b_idx, len(buy_book)):
-        agent, _, qty = buy_book[idx]
-        if qty > 0:
-            res[agent]['grid_qty']  += +qty
-            res[agent]['grid_cost'] += +lambda_buy * qty
+        agent, _, qty = buy_book[idx]          # buy_book 中剩余量必定 > 0
+        res[agent]['grid_qty']  +=  qty
+        res[agent]['grid_cost'] +=  qty * lambda_buy
 
     for idx in range(s_idx, len(sell_book)):
-        agent, _, qty = sell_book[idx]
-        if qty > 0:
-            res[agent]['grid_qty']  += -qty
-            res[agent]['grid_cost'] += -lambda_sell * qty
+        agent, _, qty = sell_book[idx]         # sell_book 中剩余量必定 > 0
+        res[agent]['grid_qty']  += -qty
+        res[agent]['grid_cost'] += -qty * lambda_sell
 
     return res
 
 
+# ----------------------------------------------------------------------
+# 2. ToU / FiT 价格曲线
+# ----------------------------------------------------------------------
 def get_market_prices():
-    elec_price_buy = [
-        5.8, 5.8, 5.8, 5.8, 5.8, 5.8, 5.8,
-        10.2,
-        16.4, 16.4, 16.4,
-        10.2, 10.2,
-        16.4, 16.4, 16.4,
-        10.2, 10.2,
-        16.4, 16.4, 16.4, 16.4,
-        5.8, 5.8
-    ]
+    elec_price_buy = (
+        [5.8]*7 + [10.2] + [16.4]*3 + [10.2]*2 +
+        [16.4]*3 + [10.2]*2 + [16.4]*4 + [5.8]*2
+    )
     elec_price_sell = 4.8
-    carbon_price_buy = [0.0]*24
-    carbon_price_sell = [0.0]*24
-    return elec_price_buy, elec_price_sell, carbon_price_buy, carbon_price_sell
+    return elec_price_buy, elec_price_sell
 
+
+# ----------------------------------------------------------------------
+# 3. 主程序：生成三微网净功率 → 撮合 → 画图
+# ----------------------------------------------------------------------
 def main():
     np.random.seed(1)                 # 结果可复现
     hours = np.arange(24)
@@ -110,7 +106,7 @@ def main():
         'IG': 1.2 + 0.2 * np.sin(hours / 24 * 2 * np.pi)           + 0.05 * np.random.randn(24)
     }
 
-    elec_price_buy, elec_price_sell,_,_ = get_market_prices()
+    elec_price_buy, elec_price_sell = get_market_prices()
     p2p_buy_prices, p2p_sell_prices = [], []
 
     # —— 3.3 逐时撮合  ---------------------------------------------------------
@@ -139,6 +135,7 @@ def main():
         p2p_buy_prices.append( bc / bq if bq else np.nan )
         p2p_sell_prices.append( sc / sq if sq else np.nan )
 
+    # —— 3.4 画图  -------------------------------------------------------------
     plt.figure(figsize=(11, 5))
     plt.step(hours, p2p_buy_prices,  where='mid', marker='o', label='P2P buy price')
     plt.step(hours, p2p_sell_prices, where='mid', marker='s', label='P2P sell price')
@@ -153,5 +150,7 @@ def main():
     plt.tight_layout()
     plt.show()
 
+
+# ----------------------------------------------------------------------
 if __name__ == "__main__":
     main()
