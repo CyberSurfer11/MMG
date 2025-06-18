@@ -110,6 +110,7 @@ MG_configs = {
         16.4, 16.4, 16.4, 16.4,               # 18–21 Peak
         5.8, 5.8                              # 22–23 Off-peak
     ],
+    "elec_price_sell":4.8,
 
     "carbon_emission_factor_grid" : [
     0.60, 0.50, 0.60, 0.60, 0.70, 0.80, 0.80, 0.80,
