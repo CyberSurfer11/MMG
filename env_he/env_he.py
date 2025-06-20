@@ -10,16 +10,23 @@ class CombinedEnergyEnv(gym.Env):
     def __init__(self):
         super().__init__()
         # ------------------ 共享参数 ------------------
-        self.Hss = np.float32(3407.34); self.Hhs = np.float32(3164.02)
-        self.Hms = np.float32(2877.53); self.Hls = np.float32(2742.5)
-        self.Hsc = np.float32(2400.0); self.Hbfw = np.float32(642.12)
-        self.hs_cost = np.float32(0.0164); self.ms_cost = np.float32(0.01495)
-        self.ls_cost = np.float32(0.01161); self.grid_cost = np.float32(0.0821)
+        self.Hss = np.float32(3407.34); 
+        self.Hhs = np.float32(3164.02)
+        self.Hms = np.float32(2877.53); 
+        self.Hls = np.float32(2742.5)
+        self.Hsc = np.float32(2400.0); 
+        self.Hbfw = np.float32(642.12)
+        self.hs_cost = np.float32(0.0164); 
+        self.ms_cost = np.float32(0.01495)
+        self.ls_cost = np.float32(0.01161); 
+        self.grid_cost = np.float32(0.0821)
         self.grid_co2 = np.float32(0.4019)
 
         # 电力系统参数
-        self.Hgt = np.float32(10.0); self.ngt = np.float32(0.65)
-        self.ng_co2 = np.float32(0.48); self.ng_cost = np.float32(0.484)
+        self.Hgt = np.float32(10.0); 
+        self.ngt = np.float32(0.65)
+        self.ng_co2 = np.float32(0.48); 
+        self.ng_cost = np.float32(0.484)
         self.Vcin, self.Vrat, self.Vcout, self.Grat = 3.0,12.0,25.0,1000.0
         self.xwt = 94
         self.Gst_user = np.array([1557,990,437,1001,308,51,41,78], dtype=np.float32)
@@ -27,8 +34,10 @@ class CombinedEnergyEnv(gym.Env):
         self.wind_speed_day = wind_df['wind'].values.astype(np.float32)
 
         # 热力系统参数
-        self.LHV = np.float32(45200.0); self.Fbmax = np.float32(150000.0)
-        self.Fr = np.float32(0.5573); self.effSHC = np.float32(0.84)
+        self.LHV = np.float32(45200.0); 
+        self.Fbmax = np.float32(150000.0)
+        self.Fr = np.float32(0.5573); 
+        self.effSHC = np.float32(0.84)
         self.Tfw, self.Tsat, self.Tls = np.float32(25.0), np.float32(143.61), np.float32(145.52)
         self.cpw, self.cpsat, self.rw = np.float32(4.1819), np.float32(2.3175), np.float32(2260.0)
         self.solar_area = np.float32(50000.0)
@@ -47,7 +56,7 @@ class CombinedEnergyEnv(gym.Env):
         self.time_step = 0
 
         # 动作向量27维：
-        ele_low = np.zeros(2); ele_high = np.array([2000,2000], dtype=np.float32)
+        ele_low = np.zeros(2); ele_high = np.array([2000,2000], dtype=np.float32) # 燃气消耗量，上级电网交易
         th_cont_low = np.zeros(17, dtype=np.float32)
         th_cont_high = np.concatenate([
             [2e6,7e5,6e6,2e5],       # BF, HS_imp, MS_imp, LS_imp
