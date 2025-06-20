@@ -181,24 +181,24 @@ class CombinedEnergyEnv(gym.Env):
 
     def _constraint_h(self, cont, turb_pows, steam_ext, sol_ls):
         """
-        四级蒸汽平衡约束：
-          SS 级：锅炉 + 常备供给 == 各机组抽汽+凝汽+泄压
-          HS/MS/LS 同理。
-        cont: 连续动作，0–3 分别是 [M_bf_ss, M_HS_imp, M_MS_imp, M_LS_imp]，
-              4–8 是 ST01–ST05 抽汽量，
-              9–13 是 ST01–ST04, ST06 凝汽量，
-              14–16 是 3 路泄压阀。
-        turb_pows: ST01–ST06 的电功率（这里用不到，只为了兼容）
-        steam_ext: ST07–ST14 的抽汽量列表
-        sol_ls: 太阳能产生的低压蒸汽（用于 LS 级供给）
+        四级蒸汽平衡约束，包含 3 路泄压阀：
+          cont[0]   = M_bf_ss      锅炉高压蒸汽
+          cont[1]   = M_HS_imp     HS 进口蒸汽
+          cont[2]   = M_MS_imp     MS 进口蒸汽
+          cont[3]   = M_LS_imp     LS 进口蒸汽
+          cont[4:9] = M_ext_ST01-05  = 蒸汽机抽汽量 ST01–ST05
+          cont[9:14]= M_out_ST01-04,ST06 = 蒸汽机凝汽量 ST01–ST04,ST06
+          cont[14:17]= M_lv01-03    = 三路泄压阀进气量
+        steam_ext: 长度 8 的列表，ST07–ST14 抽汽量
+        sol_ls:   太阳能产生的 LS 蒸汽（本函数不直接使用，但保留签名）
         """
-
+        # 拆解 cont
         M_bf_ss, M_HS_imp, M_MS_imp, M_LS_imp = cont[0:4]
-        M_ext    = cont[4:9]
-        M_out    = cont[9:14]
-        M_lv     = cont[14:17]
+        M_ext      = cont[4:9]
+        M_out      = cont[9:14]
+        M_lv       = cont[14:17]
 
-        # —— SS 平衡 ——
+        # —— SS 级平衡 ——
         l_ss = self.Mwhrs_ss + M_bf_ss
         r_ss = (
             (M_ext[0] + M_out[0]) +
@@ -210,7 +210,7 @@ class CombinedEnergyEnv(gym.Env):
         gap_ss = round(l_ss - r_ss)
         pen_ss = abs(gap_ss) if abs(gap_ss) > 1 else 0
 
-        # —— HS 平衡 ——
+        # —— HS 级平衡 ——
         l_hs = (
             M_HS_imp +
             M_ext[0] +
@@ -228,7 +228,7 @@ class CombinedEnergyEnv(gym.Env):
         gap_hs = round(l_hs - r_hs)
         pen_hs = abs(gap_hs) if abs(gap_hs) > 1 else 0
 
-        # —— MS 平衡 ——
+        # —— MS 级平衡 ——
         l_ms = (
             M_MS_imp +
             M_ext[1] +
@@ -244,13 +244,15 @@ class CombinedEnergyEnv(gym.Env):
         gap_ms = round(l_ms - r_ms)
         pen_ms = abs(gap_ms) if abs(gap_ms) > 10 else 0
 
-        # —— LS 平衡 ——
+        # —— LS 级平衡 ——
         l_ls = sol_ls + M_LS_imp + sum(steam_ext) + M_lv[2] * self.clv[2]
         r_ls = self.base_r_ls
         gap_ls = round(l_ls - r_ls)
         pen_ls = abs(gap_ls) if abs(gap_ls) > 10 else 0
 
+        # 返回各级罚项之和
         return pen_ss + pen_hs + pen_ms + pen_ls
+
 
 
 # 测试
