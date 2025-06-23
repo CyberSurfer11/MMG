@@ -42,6 +42,11 @@ class CombinedEnergyEnv(gym.Env):
         self.cpw, self.cpsat, self.rw = np.float32(4.1819), np.float32(2.3175), np.float32(2260.0)
         self.solar_area = np.float32(50000.0)
         self.fuel_cost = np.float32(0.21085)
+
+        self.ghs = np.float32(0.1991)
+        self.gms = np.float32(0.1811)
+        self.gls = np.float32(0.1726)
+
         rad_df = pd.read_excel('data/env_data.xlsx', engine='openpyxl')
         self.rad_day = rad_df['salor'].values.astype(np.float32)
 
@@ -108,7 +113,7 @@ class CombinedEnergyEnv(gym.Env):
         wind_pow = self._calc_wind_power(self.wind_speed_day[self.time_step])
         gas_cons = self._calc_gas_consum(p_gas)
         # 用电需求由无蒸汽外送的电机驱动
-        P_ele = np.where(np.array(steam_ext)==0, self.Gst_user, 0)
+        P_ele = np.where(np.array(steam_ext)==0, self.Gst_user, 0) #?
         self.state[0] = gas_cons
         self.state[8] = wind_pow
 
@@ -120,7 +125,7 @@ class CombinedEnergyEnv(gym.Env):
         )
         total_emis = (
             self.grid_co2*G_imp + p_gas*self.ng_co2 +
-            fuel_cons*self.grid_co2
+            fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls
         )
         pen_e = self._constraint_e(wind_pow, G_imp, p_gas, P_ele)
         pen_h = self._constraint_h(th_cont, turb_pows, sol_ls)
@@ -145,9 +150,9 @@ class CombinedEnergyEnv(gym.Env):
     def _calc_wind_power(self, v):
         if v < self.Vcin:
             return 0.0
-        elif v < self.Vrat:
+        elif self.Vcin <= v < self.Vrat:
             p = self.Grat * (v**3 - self.Vcin**3) / (self.Vrat**3 - self.Vcin**3)
-        elif v < self.Vcout:
+        elif self.Vrat <=v < self.Vcout:
             p = self.Grat
         else:
             p = 0.0
@@ -195,7 +200,7 @@ class CombinedEnergyEnv(gym.Env):
           cont[1]   = M_HS_imp     HS 进口蒸汽
           cont[2]   = M_MS_imp     MS 进口蒸汽
           cont[3]   = M_LS_imp     LS 进口蒸汽
-          cont[4:9] = M_ext_ST01-05  = 蒸汽机抽汽量 ST01–ST05
+          cont[4:9] = M_ext_ST01-05  = 蒸汽机抽汽量 ST01–ST05 
           cont[9:14]= M_out_ST01-04,ST06 = 蒸汽机凝汽量 ST01–ST04,ST06
           cont[14:17]= M_lv01-03    = 三路泄压阀进气量
         steam_ext: 长度 8 的列表，ST07–ST14 抽汽量
@@ -228,10 +233,9 @@ class CombinedEnergyEnv(gym.Env):
         )
         r_hs = (
             (M_ext[3] + M_out[3]) +
-            M_ext[4] +
-            M_out[4] +
+            M_ext[4] + M_out[4] +
             sum(steam_ext[0:4]) +
-            M_lv[1] +
+            M_lv[1] + 
             self.base_r_hs
         )
         gap_hs = round(l_hs - r_hs)
