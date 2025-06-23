@@ -64,6 +64,13 @@ class CombinedEnergyEnv(gym.Env):
         self.gms = Config.get_shared('gms')
         self.gls = Config.get_shared('gls')
 
+        # 蒸汽需求
+        self.Mwhrs_ss = Config.get_scenario(scenario,'Mwhrs_ss')
+        self.base_r_ss = Config.get_scenario(scenario,'base_r_ss')
+        self.base_r_hs = Config.get_scenario(scenario,'base_r_ss')
+        self.base_r_ms = Config.get_scenario(scenario,'base_r_ss')
+        self.base_r_ls = Config.get_scenario(scenario,'base_r_ss')
+
         # 辐射序列
         self.rad_day = Config.load_data('solar_radiation')  # 在 config
 
