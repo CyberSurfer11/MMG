@@ -59,7 +59,7 @@ class CombinedEnergyEnv(gym.Env):
         self.solar_area = Config.get_scenario(scenario, 'solar_area')  # 在 config
         self.fuel_cost = Config.get_shared('fuel_cost')
 
-        # 蒸汽泄压阀成本系数
+        # 蒸汽碳排因子
         self.ghs = Config.get_shared('ghs')
         self.gms = Config.get_shared('gms')
         self.gls = Config.get_shared('gls')
