@@ -34,7 +34,7 @@ class network:
         self.state_high = np.array(state_high,dtype=np.float32)
         self.state_range = self.state_high - self.state_low
 
-
+    # 输入原始状态
     def actor(self, units=(512, 256, 64, 32), tau_=0.5):
         state_input = Input(shape=(self.state_dim,), name="State_Input")
 
@@ -99,7 +99,7 @@ class network:
 
         ## **🚀 双 Q Critic 网络**
 
-    # 输入原始动作和actor得出的动作
+    # 输入原始动作和actor得出的动作（归一化了的）
     def critic(self, units=(128, 128, 32)):
         """ **创建两个独立的 Q 网络：Q1 和 Q2** """
 

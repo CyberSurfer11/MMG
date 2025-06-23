@@ -1,89 +1,86 @@
-# -*- coding: utf-8 -*-
-"""
-CombinedEnergyEnv 环境定义，参数从 config.Config 动态加载
-"""
 import gym
 from gym import spaces
 import numpy as np
 import pandas as pd
-from config import Config
 
 class CombinedEnergyEnv(gym.Env):
     """
-    综合电-热能源强化学习环境，使用 config.Config 管理参数。
+    综合电-热能源强化学习环境，统一状态、动作及奖励约束计算。
     """
-    def __init__(self, scenario='IES1'):
+    def __init__(self):
         super().__init__()
         # ------------------ 共享参数 ------------------
-        self.Hss = Config.get_shared('Hss')
-        self.Hhs = Config.get_shared('Hhs')
-        self.Hms = Config.get_shared('Hms')
-        self.Hls = Config.get_shared('Hls')
-        self.Hsc = Config.get_shared('Hsc')
-        self.Hbfw = Config.get_shared('Hbfw')
-        self.hs_cost = Config.get_shared('hs_cost')
-        self.ms_cost = Config.get_shared('ms_cost')
-        self.ls_cost = Config.get_shared('ls_cost')
-        self.grid_cost = Config.get_shared('grid_cost')
-        self.grid_co2 = Config.get_shared('grid_co2')
+        self.Hss = np.float32(3407.34); 
+        self.Hhs = np.float32(3164.02)
+        self.Hms = np.float32(2877.53); 
+        self.Hls = np.float32(2742.5)
+        self.Hsc = np.float32(2400.0); 
+        self.Hbfw = np.float32(642.12)
+        self.hs_cost = np.float32(0.0164); 
+        self.ms_cost = np.float32(0.01495)
+        self.ls_cost = np.float32(0.01161); 
+        self.grid_cost = np.float32(0.0821)
+        self.grid_co2 = np.float32(0.4019)
 
         # 电力系统参数
-        self.Hgt = Config.get_shared('Hgt')
-        self.ngt = Config.get_shared('ngt')
-        self.ng_co2 = Config.get_shared('ng_co2')
-        self.ng_cost = Config.get_shared('ng_cost')
-        self.Vcin = Config.get_shared('Vcin')
-        self.Vrat = Config.get_shared('Vrat')
-        self.Vcout = Config.get_shared('Vcout')
-        self.Grat = Config.get_shared('Grat')
-        self.xwt = Config.get_shared('xwt')
-
-        # 场景专属参数
-        self.Gst_user = Config.get_scenario(scenario, 'Gst_user')  # 在 config
-
-        # 数据序列
-        self.wind_speed_day = Config.load_data('wind_speed')      # 在 config
+        self.Hgt = np.float32(10.0); 
+        self.ngt = np.float32(0.65)
+        self.ng_co2 = np.float32(0.48); 
+        self.ng_cost = np.float32(0.484)
+        self.Vcin, self.Vrat, self.Vcout, self.Grat = 3.0,12.0,25.0,1000.0
+        self.xwt = 94
+        self.Gst_user = np.array([1557,990,437,1001,308,51,41,78], dtype=np.float32)
+        wind_df = pd.read_excel('data/env_data2.xlsx', engine='openpyxl')
+        self.wind_speed_day = wind_df['wind'].values.astype(np.float32)
 
         # 热力系统参数
-        self.LHV = Config.get_shared('LHV')
-        self.Fbmax = Config.get_scenario(scenario, 'Fbmax')      # 在 config
-        self.nb = Config.get_scenario(scenario, 'nb')  
-        self.Fr = Config.get_shared('Fr')
-        self.effSHC = Config.get_shared('effSHC')
-        self.Tfw = Config.get_shared('Tfw')
-        self.Tsat = Config.get_shared('Tsat')
-        self.Tls = Config.get_shared('Tls')
-        self.cpw = Config.get_shared('cpw')
-        self.cpsat = Config.get_shared('cpsat')
-        self.rw = Config.get_shared('rw')
-        self.solar_area = Config.get_scenario(scenario, 'solar_area')  # 在 config
-        self.fuel_cost = Config.get_shared('fuel_cost')
+        self.LHV = np.float32(45200.0); 
+        self.Fbmax = np.float32(150000.0)
+        self.Fr = np.float32(0.5573); 
+        self.effSHC = np.float32(0.84)
+        self.Tfw, self.Tsat, self.Tls = np.float32(25.0), np.float32(143.61), np.float32(145.52)
+        self.cpw, self.cpsat, self.rw = np.float32(4.1819), np.float32(2.3175), np.float32(2260.0)
+        self.solar_area = np.float32(50000.0)
+        self.fuel_cost = np.float32(0.21085)
 
-        # 蒸汽泄压阀成本系数
-        self.ghs = Config.get_shared('ghs')
-        self.gms = Config.get_shared('gms')
-        self.gls = Config.get_shared('gls')
+        self.ghs = np.float32(0.1991)
+        self.gms = np.float32(0.1811)
+        self.gls = np.float32(0.1726)
 
-        # 辐射序列
-        self.rad_day = Config.load_data('solar_radiation')  # 在 config
+        rad_df = pd.read_excel('data/env_data.xlsx', engine='openpyxl')
+        self.rad_day = rad_df['salor'].values.astype(np.float32)
 
         # 时序与状态
-        self.max_step = Config.get_shared('max_step')
+        self.max_step = 24
+        # 状态向量16维：
+        # [0] M_gas_consumption, [1] Boiler fuel_consumption,
+        # [2-7] Turbine power ST01-06,
+        # [8] Wind turbine power, [9] Solar thermal output,
+        # [10-15] 保留占位
         self.state = np.zeros(16, dtype=np.float32)
         self.time_step = 0
 
-        # 动作向量27维：边界从 config
-        ab = Config.get_scenario(scenario, 'action_bounds')
-        ele_low, ele_high = ab['ele_low'], ab['ele_high']
-        th_cont_low, th_cont_high = ab['th_cont_low'], ab['th_cont_high']
-        th_disc_low, th_disc_high = ab['th_disc_low'], ab['th_disc_high']
+        # 动作向量27维：
+        ele_low = np.zeros(2); ele_high = np.array([2000,2000], dtype=np.float32) # 燃气消耗量，上级电网交易
+        th_cont_low = np.zeros(17, dtype=np.float32)
+        th_cont_high = np.concatenate([
+            [2e6,7e5,6e6,2e5],       # BF, HS_imp, MS_imp, LS_imp
+            [2e6,6e5,2e6,1e6,6e5],    # ext ST01-05
+            [5e5,5e5,6e5,6e5,1e6],    # cond ST01-04, ST06
+            [1e5,5e4,5e4]            # LP release 1-3
+        ]).astype(np.float32)
+        th_disc_low = np.zeros(8); th_disc_high = np.ones(8)
         low = np.concatenate([ele_low, th_cont_low, th_disc_low])
         high = np.concatenate([ele_high, th_cont_high, th_disc_high])
         self.action_space = spaces.Box(low=low, high=high, dtype=np.float32)
 
         # 观测空间
-        ob = Config.get_scenario(scenario, 'obs_bounds')
-        obs_low, obs_high = ob['low'], ob['high']
+        obs_low = np.zeros(16, dtype=np.float32)
+        obs_high = np.concatenate([
+            np.array([2000], dtype=np.float32),       # gas_cons upper
+            np.array([1e7] + [1e8]*6, dtype=np.float32),# fuel and power upper
+            np.zeros(6, dtype=np.float32)              # 占位
+        ])
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
 
     def reset(self):
@@ -146,8 +143,8 @@ class CombinedEnergyEnv(gym.Env):
     # ------------------ 内部计算方法 ------------------
     def _calc_boiler_fuel(self, m):
         """计算锅炉燃料消耗 (kg/h)"""
-        # nb = np.float32(0.97)
-        return m * (self.Hss - self.Hbfw) / (self.LHV * self.nb)
+        nb = np.float32(0.97)
+        return m * (self.Hss - self.Hbfw) / (self.LHV * nb)
 
 
     def _calc_wind_power(self, v):
@@ -268,3 +265,14 @@ class CombinedEnergyEnv(gym.Env):
 
         # 返回各级罚项之和
         return pen_ss + pen_hs + pen_ms + pen_ls
+
+
+
+# 测试
+if __name__ == '__main__':
+    env = CombinedEnergyEnv()
+    obs = env.reset()
+    print('obs shape:', obs.shape)
+    action = env.action_space.sample()
+    obs2, r, d, info = env.step(action)
+    print('reward:', r, 'info:', info)
