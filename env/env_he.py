@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 import pandas as pd
-from env_he import Config
+from env import Config
 
 class CombinedEnergyEnv(gym.Env):
     """
@@ -41,6 +41,7 @@ class CombinedEnergyEnv(gym.Env):
         # 场景专属参数
         self.Gst_user = Config.get_scenario(scenario, 'Gst_user')  # 在 config
         self.ngt = Config.get_scenario(scenario,'ngt')
+        self.clv = Config.get_scenario(scenario,'clv')
 
         # 数据序列
         self.wind_speed_day = Config.load_data('wind_speed')      # 在 config
@@ -68,16 +69,15 @@ class CombinedEnergyEnv(gym.Env):
         # 蒸汽需求
         self.Mwhrs_ss = Config.get_scenario(scenario,'Mwhrs_ss')
         self.base_r_ss = Config.get_scenario(scenario,'base_r_ss')
-        self.base_r_hs = Config.get_scenario(scenario,'base_r_ss')
-        self.base_r_ms = Config.get_scenario(scenario,'base_r_ss')
-        self.base_r_ls = Config.get_scenario(scenario,'base_r_ss')
+        self.base_r_hs = Config.get_scenario(scenario,'base_r_hs')
+        self.base_r_ms = Config.get_scenario(scenario,'base_r_ms')
+        self.base_r_ls = Config.get_scenario(scenario,'base_r_ls')
 
         # 辐射序列
         self.rad_day = Config.load_data('solar_radiation')  # 在 config
 
         # 时序与状态
         self.max_step = Config.get_shared('max_step')
-        self.state = np.zeros(16, dtype=np.float32)
         self.time_step = 0
 
         # 动作向量27维：边界从 config
@@ -92,6 +92,7 @@ class CombinedEnergyEnv(gym.Env):
         ob = Config.get_scenario(scenario, 'obs_bounds')
         obs_low, obs_high = ob['low'], ob['high']
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
+        self.state = np.zeros(self.observation_space.shape, dtype=np.float32)
 
     def reset(self):
         self.state.fill(0)
@@ -99,6 +100,7 @@ class CombinedEnergyEnv(gym.Env):
         return self.state.copy()
 
     def step(self, action):
+        # print('action',action)
         # 解析动作
         p_gas, G_imp = action[0:2]
         th_cont = action[2:19]
@@ -139,7 +141,7 @@ class CombinedEnergyEnv(gym.Env):
         )
 
         # pen_e = self._constraint_e(wind_pow, G_imp, p_gas, P_ele)
-        pen_h = self._constraint_h(th_cont, turb_pows, sol_ls)
+        pen_h = self._constraint_h(th_cont, turb_pows, steam_ext, sol_ls)
 
         total_pen = pen_h
         reward = -(total_cost + total_emis*0.01)*1e-3
@@ -206,7 +208,7 @@ class CombinedEnergyEnv(gym.Env):
         gap = round(supply - demand)
         return abs(gap) if gap < 1 else 0
 
-    def _constraint_h(self, cont, turb_pows, steam_ext, sol_ls):
+    def _constraint_h(self, cont, turb_pows, steam_ext, sol_ls=0):
         """
         四级蒸汽平衡约束，包含 3 路泄压阀：
           cont[0]   = M_bf_ss      锅炉高压蒸汽
@@ -227,6 +229,7 @@ class CombinedEnergyEnv(gym.Env):
 
         # —— SS 级平衡 ——
         l_ss = self.Mwhrs_ss + M_bf_ss
+        # print(M_bf_ss)
         r_ss = (
             (M_ext[0] + M_out[0]) +
             (M_ext[1] + M_out[1]) +
