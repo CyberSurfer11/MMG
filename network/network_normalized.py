@@ -59,20 +59,20 @@ class network:
         mu_output = Dense(self.action_dim_continuous,
                           kernel_initializer=tf.keras.initializers.he_uniform(),
                           name="Cont_Output_Mean")(x)
-        mu_output = Lambda(lambda x: tf.tanh(x), name="Cont_Output_Mean_Tanh")(mu_output)  # ✅ 限制 mu 在 [-1,1] ,这里必须这么做，你要保证和动作一致
+        mu_output = Lambda(lambda x: tf.tanh(x), name="Cont_Output_Mean_Tanh")(mu_output)  #  限制 mu 在 [-1,1] ,这里必须这么做，你要保证和动作一致
 
         sigma_output = Dense(self.action_dim_continuous, activation="softplus",
                              kernel_initializer=tf.keras.initializers.he_uniform(),
                              name="Cont_Output_StdDev")(x)
 
-        # ✅ sigma不要接近于0
+        #  sigma不要接近于0
         sigma_output = Lambda(lambda x: tf.clip_by_value(x, 0.1, np.inf))(sigma_output)
 
         # 重新参数化技巧（Reparameterization Trick）给出连续动作
         # 写成可微形式，方便求导
         epsilon = Lambda(lambda x: tf.random.normal(shape=tf.shape(x)))(sigma_output)
         sampled_cont_action = Lambda(lambda x: x[0] + x[1] * x[2])([mu_output, sigma_output, epsilon])
-        sampled_cont_action = Lambda(lambda x: tf.tanh(x))(sampled_cont_action)  # ✅ 最终动作归一化，经过tanh
+        sampled_cont_action = Lambda(lambda x: tf.tanh(x))(sampled_cont_action)  #  最终动作归一化，经过tanh
 
         ## **离散动作（如果 action_dim_discrete > 0）**
         if self.action_dim_discrete > 0:
@@ -97,9 +97,9 @@ class network:
 
         return model
 
-        ## **🚀 双 Q Critic 网络**
+        ##  双 Q Critic 网络**
 
-    # 输入原始动作和actor得出的动作（归一化了的）
+    # 输入原始状态和actor得出的动作（归一化了的）
     def critic(self, units=(128, 128, 32)):
         """ **创建两个独立的 Q 网络：Q1 和 Q2** """
 
@@ -125,11 +125,11 @@ class network:
             # **隐藏层**
             x = Dense(units[0], kernel_initializer=tf.keras.initializers.he_uniform(), name="L0")(concat)
             x = LeakyReLU()(x)
-            x = LayerNormalization(name="LayerNorm0")(x)  # 🚀 增加 Layer Normalization
+            x = LayerNormalization(name="LayerNorm0")(x)  #  增加 Layer Normalization
             for index in range(1, len(units)):
                 x = Dense(units[index], kernel_initializer=tf.keras.initializers.he_uniform(), name=f"L{index}")(x)
                 x = LeakyReLU()(x)
-                x = Dropout(0.1, name=f"Dropout{index}")(x)  # 🚀 添加 Dropout
+                x = Dropout(0.1, name=f"Dropout{index}")(x)  #  添加 Dropout
 
             # **单独的 Q 值输出**
             q_value_output = Dense(1, activation="linear", name="Q_Value_Output")(x)

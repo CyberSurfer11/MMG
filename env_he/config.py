@@ -13,21 +13,25 @@ class Config:
         'Hms': np.float32(2877.53),
         'Hls': np.float32(2742.5),
         'Hsc': np.float32(2400.0),
+        'Hw' : np.float32(104.93),
         'Hbfw': np.float32(642.12),
+
         'hs_cost': np.float32(0.0164),
         'ms_cost': np.float32(0.01495),
         'ls_cost': np.float32(0.01161),
         'grid_cost': np.float32(0.0821),
         'grid_co2': np.float32(0.4019),
+
         'Hgt': np.float32(10.0),
-        'ngt': np.float32(0.65),
         'ng_co2': np.float32(0.48),
         'ng_cost': np.float32(0.484),
+
         'Vcin': np.float32(3.0),
         'Vrat': np.float32(12.0),
         'Vcout': np.float32(25.0),
         'Grat': np.float32(1000.0),
         'xwt': np.float32(94),
+
         'LHV': np.float32(45200.0),
         'Fr': np.float32(0.5573),
         'effSHC': np.float32(0.84),
@@ -37,10 +41,13 @@ class Config:
         'cpw': np.float32(4.1819),
         'cpsat': np.float32(2.3175),
         'rw': np.float32(2260.0),
-        'fuel_cost': np.float32(0.21085),
+
+        'fuel_cost': np.float32(0.21085), # kg
+        'gfuel' : np.float32(3.2233),
         'ghs': np.float32(0.1991),
         'gms': np.float32(0.1811),
         'gls': np.float32(0.1726),
+
         'max_step': 24,
         'penalty_weight_e': np.float32(1.0),
         'penalty_weight_h': np.float32(1.0)
@@ -67,6 +74,7 @@ class Config:
             'Fbmax': np.float32(150000.0),
             'nb' : np.float32(0.97),
             'solar_area': np.float32(50000.0),
+
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
                 'ele_high': np.array([2000, 2000], dtype=np.float32),
@@ -77,11 +85,11 @@ class Config:
                     [5e5, 5e5, 6e5, 6e5, 1e6],
                     [1e5, 5e4, 5e4]
                 ]).astype(np.float32),
-                'th_disc_low': np.zeros(8, dtype=np.float32),
-                'th_disc_high': np.ones(8, dtype=np.float32)
+                # 'th_disc_low': np.zeros(8, dtype=np.float32),
+                # 'th_disc_high': np.ones(8, dtype=np.float32)
             },
             'obs_bounds': {
-                'low': np.zeros(16, dtype=np.float32),
+                'low': np.zeros(14, dtype=np.float32),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),

@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 import pandas as pd
-from config import Config
+from env_he import Config
 
 class CombinedEnergyEnv(gym.Env):
     """
@@ -29,7 +29,7 @@ class CombinedEnergyEnv(gym.Env):
 
         # 电力系统参数
         self.Hgt = Config.get_shared('Hgt')
-        self.ngt = Config.get_shared('ngt')
+
         self.ng_co2 = Config.get_shared('ng_co2')
         self.ng_cost = Config.get_shared('ng_cost')
         self.Vcin = Config.get_shared('Vcin')
@@ -40,6 +40,7 @@ class CombinedEnergyEnv(gym.Env):
 
         # 场景专属参数
         self.Gst_user = Config.get_scenario(scenario, 'Gst_user')  # 在 config
+        self.ngt = Config.get_scenario(scenario,'ngt')
 
         # 数据序列
         self.wind_speed_day = Config.load_data('wind_speed')      # 在 config
@@ -83,9 +84,8 @@ class CombinedEnergyEnv(gym.Env):
         ab = Config.get_scenario(scenario, 'action_bounds')
         ele_low, ele_high = ab['ele_low'], ab['ele_high']
         th_cont_low, th_cont_high = ab['th_cont_low'], ab['th_cont_high']
-        th_disc_low, th_disc_high = ab['th_disc_low'], ab['th_disc_high']
-        low = np.concatenate([ele_low, th_cont_low, th_disc_low])
-        high = np.concatenate([ele_high, th_cont_high, th_disc_high])
+        low = np.concatenate([ele_low, th_cont_low])
+        high = np.concatenate([ele_high, th_cont_high])
         self.action_space = spaces.Box(low=low, high=high, dtype=np.float32)
 
         # 观测空间
@@ -102,7 +102,7 @@ class CombinedEnergyEnv(gym.Env):
         # 解析动作
         p_gas, G_imp = action[0:2]
         th_cont = action[2:19]
-        th_disc = (action[19:27] > 0.5).astype(int)
+        th_disc = np.array([1]*8)
 
         # ---- 热力系统计算 ----
         # 锅炉燃料消耗
@@ -137,10 +137,13 @@ class CombinedEnergyEnv(gym.Env):
             self.grid_co2*G_imp + p_gas*self.ng_co2 +
             fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls
         )
-        pen_e = self._constraint_e(wind_pow, G_imp, p_gas, P_ele)
+
+        # pen_e = self._constraint_e(wind_pow, G_imp, p_gas, P_ele)
         pen_h = self._constraint_h(th_cont, turb_pows, sol_ls)
-        total_pen = self.penalty_weight_e*pen_e + self.penalty_weight_h*pen_h
-        reward = -(total_cost + total_emis*0.01)*1e-3 - total_pen
+
+        total_pen = pen_h
+        reward = -(total_cost + total_emis*0.01)*1e-3
+
         info = {'total_cost': total_cost,
                 'total_emis': total_emis,
                 'total_penalty': total_pen}
