@@ -24,7 +24,7 @@ class Config:
 
         'Hgt': np.float32(10.0),
         'ng_co2': np.float32(0.48),
-        'ng_cost': np.float32(0.484),
+        'ng_cost': np.float32(0.0672),
 
         'Vcin': np.float32(3.0),
         'Vrat': np.float32(12.0),

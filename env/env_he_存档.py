@@ -12,7 +12,7 @@ class CombinedEnergyEnv(gym.Env):
     """
     综合电-热能源强化学习环境，使用 config.Config 管理参数。
     """
-    def __init__(self, scenario='IES1'):
+    def __init__(self, scenario=None):
         super().__init__()
         # ------------------ 共享参数 ------------------
         self.Hss = Config.get_shared('Hss')
@@ -128,6 +128,11 @@ class CombinedEnergyEnv(gym.Env):
         P_ele = np.where(np.array(steam_ext)==0, self.Gst_user, 0) #?
         self.state[0] = gas_cons
         self.state[8] = wind_pow
+
+        # 电盈余
+        P_n = P_load - (wind_pow + gas_cons)
+        # 碳盈余
+        C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 40000
 
         # ---- 奖励与约束 ----
         total_cost = (
