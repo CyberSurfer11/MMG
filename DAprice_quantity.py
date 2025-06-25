@@ -60,58 +60,62 @@ def da_market_clearing(
 
     return res, p_m_plus, p_m_minus
 
-
+# 电价 碳价
 # ----------------------------------------------------------------------
 def get_market_prices():
     tou_buy = (
-        [5.8]*7 + [10.2] + [16.4]*3 + [10.2]*2 +
-        [16.4]*3 + [10.2]*2 + [16.4]*4 + [5.8]*2
+        [0.058]*7 + [0.102] + [0.164]*3 + [0.102]*2 +
+        [0.164]*3 + [0.102]*2 + [0.164]*4 + [0.058]*2
     )
-    fit_sell = 4.8
-    return tou_buy, fit_sell, [0.0]*24, [0.0]*24
+    fit_sell = 0.048
+    car_buy = 0.007
+    car_sell = 0.0035
+    return tou_buy, fit_sell, car_buy, car_sell
 
 
-# ----------------------------------------------------------------------
-def main():
-    np.random.seed(1)
-    hours = np.arange(24)
-    pv = np.maximum(0, np.sin((hours - 6) / 24 * 2 * np.pi))
-    gen = {'RG': 1.2*pv, 'CG': 0.6*pv, 'IG': 0.2*pv}
-    load = {
-        'RG': 0.8 + 0.3*np.sin(hours/24*2*np.pi + np.pi/3) + 0.05*np.random.randn(24),
-        'CG': 1.0 + 0.4*np.sin(hours/24*2*np.pi - np.pi/4) + 0.05*np.random.randn(24),
-        'IG': 1.2 + 0.2*np.sin(hours/24*2*np.pi)           + 0.05*np.random.randn(24)
-    }
-
-    tou_buy, fit_sell, _, _ = get_market_prices()
-    p_plus_series, p_minus_series = [], []
-
-    for h in hours:
-        buys = []; sells = []
-        for sys in ['RG', 'CG', 'IG']:
-            net = load[sys][h] - gen[sys][h]
-            alpha = np.clip(np.random.normal(0.5, 0.15), 0, 1)
-            bid   = fit_sell + alpha * (tou_buy[h] - fit_sell)
-            if net > 1e-3:
-                buys.append((sys, bid, round(net, 3)))
-            elif net < -1e-3:
-                sells.append((sys, bid, round(-net, 3)))
-
-        _, p_plus, p_minus = da_market_clearing(
-            buys, sells, tou_buy[h], fit_sell)
-        p_plus_series.append(p_plus); p_minus_series.append(p_minus)
-
-    # ----------------------------- Plot ------------------------------
-    plt.figure(figsize=(11, 5))
-    plt.step(hours, p_plus_series,  where='mid', marker='o', label='Unified buy price $p_{m,t}^+$')
-    plt.step(hours, p_minus_series, where='mid', marker='s', label='Unified sell price $p_{m,t}^-$')
-    plt.step(hours, tou_buy,        where='mid', marker='D', label='ToU (grid buy)')
-    plt.step(hours, [fit_sell]*24,  where='mid', marker='^', label='FiT (grid sell)')
-    plt.xlabel('Hour of day'); plt.ylabel('Electricity price (¢/kWh)')
-    plt.title('24-h unified P2P prices (3 MGs, AE-2025 scheme)')
-    plt.legend(); plt.grid(True, alpha=0.4); plt.tight_layout(); plt.show()
 
 
-# ----------------------------------------------------------------------
+
+
 if __name__ == "__main__":
+    # ----------------------------------------------------------------------
+    def main():
+        np.random.seed(1)
+        hours = np.arange(24)
+        pv = np.maximum(0, np.sin((hours - 6) / 24 * 2 * np.pi))
+        gen = {'RG': 1.2*pv, 'CG': 0.6*pv, 'IG': 0.2*pv}
+        load = {
+            'RG': 0.8 + 0.3*np.sin(hours/24*2*np.pi + np.pi/3) + 0.05*np.random.randn(24),
+            'CG': 1.0 + 0.4*np.sin(hours/24*2*np.pi - np.pi/4) + 0.05*np.random.randn(24),
+            'IG': 1.2 + 0.2*np.sin(hours/24*2*np.pi)           + 0.05*np.random.randn(24)
+        }
+
+        tou_buy, fit_sell, _, _ = get_market_prices()
+        p_plus_series, p_minus_series = [], []
+
+        for h in hours:
+            buys = []; sells = []
+            for sys in ['RG', 'CG', 'IG']:
+                net = load[sys][h] - gen[sys][h]
+                alpha = np.clip(np.random.normal(0.5, 0.15), 0, 1)
+                bid   = fit_sell + alpha * (tou_buy[h] - fit_sell)
+                if net > 1e-3:
+                    buys.append((sys, bid, round(net, 3)))
+                elif net < -1e-3:
+                    sells.append((sys, bid, round(-net, 3)))
+
+            _, p_plus, p_minus = da_market_clearing(
+                buys, sells, tou_buy[h], fit_sell)
+            p_plus_series.append(p_plus); p_minus_series.append(p_minus)
+
+        # ----------------------------- Plot ------------------------------
+        plt.figure(figsize=(11, 5))
+        plt.step(hours, p_plus_series,  where='mid', marker='o', label='Unified buy price $p_{m,t}^+$')
+        plt.step(hours, p_minus_series, where='mid', marker='s', label='Unified sell price $p_{m,t}^-$')
+        plt.step(hours, tou_buy,        where='mid', marker='D', label='ToU (grid buy)')
+        plt.step(hours, [fit_sell]*24,  where='mid', marker='^', label='FiT (grid sell)')
+        plt.xlabel('Hour of day'); plt.ylabel('Electricity price (¢/kWh)')
+        plt.title('24-h unified P2P prices (3 MGs, AE-2025 scheme)')
+        plt.legend(); plt.grid(True, alpha=0.4); plt.tight_layout(); plt.show()
+
     main()
