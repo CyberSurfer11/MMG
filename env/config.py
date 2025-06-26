@@ -168,7 +168,43 @@ class Config:
                     np.ones(6, dtype=np.float32)
                 ])
             }
-        },        
+        },
+        'IES4': {
+            'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
+            'Mwhrs_ss': np.float32(394002.0),
+            'base_r_ss': np.float32(72534.0),
+            'base_r_hs': np.float32(89060.0),
+            'base_r_ms': np.float32(154653.0),
+            'base_r_ls': np.float32(95302.0),
+            'clv': np.array([1.079, 1.103, 1.051], dtype=np.float32),
+            'ngt': np.float32(0.65),
+            'xwt': np.float32(94),
+            'Fbmax': np.float32(150000.0),
+            'nb' : np.float32(0.97),
+            'solar_area': np.float32(50000.0),
+
+            'action_bounds': {
+                'ele_low': np.zeros(2, dtype=np.float32),
+                'ele_high': np.array([2000, 2000], dtype=np.float32),
+                'th_cont_low': np.zeros(17, dtype=np.float32),
+                'th_cont_high': np.concatenate([
+                    [2e6, 7e5, 6e6, 2e5],
+                    [2e6, 6e5, 2e6, 1e6, 6e5],
+                    [5e5, 5e5, 6e5, 6e5, 1e6],
+                    [1e5, 5e4, 5e4]
+                ]).astype(np.float32),
+                # 'th_disc_low': np.zeros(8, dtype=np.float32),
+                # 'th_disc_high': np.ones(8, dtype=np.float32)
+            },
+            'obs_bounds': {
+                'low': np.zeros(14, dtype=np.float32),
+                'high': np.concatenate([
+                    np.array([2000], dtype=np.float32),
+                    np.array([1e7] + [1e8]*6, dtype=np.float32),
+                    np.ones(6, dtype=np.float32)
+                ])
+            }
+        },     
     }
 
     @classmethod
