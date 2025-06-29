@@ -446,8 +446,9 @@ class C_SAC_:
 
 if __name__ == '__main__':
     env = CombinedEnergyEnv('IES1')
-    agent = C_SAC_(env, lr_actor=5e-5, lr_critic=1e-4, gamma=0.85)
-    agent.train(max_episodes=10)
+    print(len(env.elec_load))
+    # agent = C_SAC_(env, lr_actor=5e-5, lr_critic=1e-4, gamma=0.85)
+    # agent.train(max_episodes=10)
 
     # env = CombinedEnergyEnv()
 

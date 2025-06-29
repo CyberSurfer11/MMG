@@ -76,6 +76,9 @@ class CombinedEnergyEnv(gym.Env):
         # 辐射序列
         self.rad_day = Config.load_data('solar_radiation')  # 在 config
 
+        # 电需求
+        self.elec_load = Config.load_elec_load(scenario)
+
         # 时序与状态
         self.max_step = Config.get_shared('max_step')
         self.time_step = 0
@@ -130,9 +133,9 @@ class CombinedEnergyEnv(gym.Env):
         self.state[8] = wind_pow
 
         # 电盈余
-        P_n = P_load - (wind_pow + gas_cons)
+        P_n = self.elec_load[self.time_step] - (wind_pow + gas_cons)
         # 碳盈余
-        C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 40000
+        C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 8800
 
         # ---- 奖励与约束 ----
         total_cost = (

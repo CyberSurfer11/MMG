@@ -95,7 +95,8 @@ class Config:
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
                     np.ones(6, dtype=np.float32)
                 ])
-            }
+            },
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
         },
         'IES2': {
             'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
@@ -131,7 +132,8 @@ class Config:
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
                     np.ones(6, dtype=np.float32)
                 ])
-            }
+            },
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
         },
         'IES3': {
             'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
@@ -167,7 +169,8 @@ class Config:
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
                     np.ones(6, dtype=np.float32)
                 ])
-            }
+            },
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
         },
         'IES4': {
             'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
@@ -203,7 +206,8 @@ class Config:
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
                     np.ones(6, dtype=np.float32)
                 ])
-            }
+            },
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
         },     
     }
 
@@ -220,6 +224,13 @@ class Config:
         cfg = cls.DATA_SOURCES[name]
         df = pd.read_excel(cfg['path'], engine='openpyxl')
         return df[cfg['column']].values.astype(np.float32)
+    
+    @classmethod
+    def load_elec_load(cls, scenario):
+        """提取指定场景的电力负荷数据"""
+        elec_cfg = cls.SCENARIO_PARAMS[scenario]['elec_load']
+        df = pd.read_excel(elec_cfg['path'], engine='openpyxl')
+        return df[elec_cfg['column']].values.astype(np.float32)
 
     @classmethod
     def get_action_bounds(cls, scenario):
