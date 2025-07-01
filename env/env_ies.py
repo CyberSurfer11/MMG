@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 import pandas as pd
-from env import Config
+from env import Config,da_market_clearing
 
 class CombinedEnergyEnv(gym.Env):
     """
@@ -137,6 +137,7 @@ class CombinedEnergyEnv(gym.Env):
         # 碳盈余
         C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 8800
 
+
         # ---- 奖励与约束 ----
         total_cost = (
             self.grid_cost*G_imp + gas_cons*self.ng_cost +
@@ -154,14 +155,50 @@ class CombinedEnergyEnv(gym.Env):
         total_pen = pen_h
         reward = -(total_cost + total_emis*0.01)*1e-3
 
+
+
         info = {'total_cost': total_cost,
                 'total_emis': total_emis,
-                'total_penalty': total_pen}
+                'total_penalty': total_pen,
+                'P_n':P_n,
+                'C_n':C_n
+                }
 
         # 步进
         self.time_step += 1
         done = self.time_step >= self.max_step
         return self.state.copy(), reward, done, info
+
+    # 计算交易之后的reward
+    def compute_trade_cost(self,
+                            p_n: float,
+                            c_n: float,
+                            elec_price_buy: float,
+                            elec_price_sell: float,
+                            carbon_price_buy: float,
+                            carbon_price_sell: float
+                        ) -> float:
+        """
+        计算 MG 在 P2P 市场的电＋碳交易净成本：
+        cost = p^+·[P_n]^+ − p^−·[P_n]^−
+            + p^{c,+}·[C_n]^+ − p^{c,−}·[C_n]^−
+        其中 [x]^+ = max(x,0), [x]^− = −min(x,0)
+        返回一个正数表示净支出，负数表示净收益。
+        """
+
+        self.state[8]  = elec_price_buy
+        self.state[9]  = elec_price_sell
+        self.state[10] = carbon_price_buy
+        self.state[11] = carbon_price_sell
+
+        # 电力交易成本
+        cost_elec = (elec_price_buy  * max(p_n, 0) - elec_price_sell * min(p_n, 0))
+
+        # 碳交易成本
+        cost_carbon = (carbon_price_buy  * max(c_n, 0) - carbon_price_sell * min(c_n, 0))
+
+        return cost_elec + cost_carbon,self.state.copy()
+
 
     # ------------------ 内部计算方法 ------------------
     def _calc_boiler_fuel(self, m):

@@ -446,8 +446,8 @@ class C_SAC_:
 
 if __name__ == '__main__':
     env = CombinedEnergyEnv('IES1')
-    print(len(env.elec_load))
-    # agent = C_SAC_(env, lr_actor=5e-5, lr_critic=1e-4, gamma=0.85)
+    # print(len(env.elec_load))
+    agent = C_SAC_(env, lr_actor=5e-5, lr_critic=1e-4, gamma=0.85)
     # agent.train(max_episodes=10)
 
     # env = CombinedEnergyEnv()
@@ -474,15 +474,15 @@ if __name__ == '__main__':
     # print("Computed action bounds (half-range):", bounds)
     # print("Computed action shifts (midpoint):",   shifts)
 
-    # # 测试动作空间
-    # dim_d, dim_c, bounds, shifts = agent.get_action_space_dimensions(env.action_space)
-    # print("离散动作维度 dim_d    :", dim_d)
-    # print("连续动作维度 dim_c    :", dim_c)
-    # print("动作半范围 bounds     :", bounds)
-    # print("动作中点 shifts      :", shifts)
+    # 测试动作空间
+    dim_d, dim_c, bounds, shifts = agent.get_action_space_dimensions(env.action_space)
+    print("离散动作维度 dim_d    :", dim_d)
+    print("连续动作维度 dim_c    :", dim_c)
+    print("动作半范围 bounds     :", bounds)
+    print("动作中点 shifts      :", shifts)
 
-    # # 测试状态空间
-    # state_low, state_high = agent.get_state_space_limits()
-    # print("状态下限 state_low   :", state_low)
-    # print("状态上限 state_high  :", state_high)
-    # print("状态维度 state_shape :", agent.state_shape)
+    # 测试状态空间
+    state_low, state_high = agent.get_state_space_limits()
+    print("状态下限 state_low   :", state_low)
+    print("状态上限 state_high  :", state_high)
+    print("状态维度 state_shape :", agent.state_shape)

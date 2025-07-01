@@ -89,11 +89,14 @@ class Config:
                 # 'th_disc_high': np.ones(8, dtype=np.float32)
             },
             'obs_bounds': {
-                'low': np.zeros(14, dtype=np.float32),
+                 'low': np.concatenate([
+                        np.array([0]*8, dtype=np.float32),                 
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                    ]),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.ones(6, dtype=np.float32)
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
                 ])
             },
             'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
@@ -126,11 +129,14 @@ class Config:
                 # 'th_disc_high': np.ones(8, dtype=np.float32)
             },
             'obs_bounds': {
-                'low': np.zeros(14, dtype=np.float32),
+                 'low': np.concatenate([
+                        np.array([0]*8, dtype=np.float32),                 
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                    ]),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.ones(6, dtype=np.float32)
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
                 ])
             },
             'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
@@ -163,11 +169,14 @@ class Config:
                 # 'th_disc_high': np.ones(8, dtype=np.float32)
             },
             'obs_bounds': {
-                'low': np.zeros(14, dtype=np.float32),
+                 'low': np.concatenate([
+                        np.array([0]*8, dtype=np.float32),                 
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                    ]),
                 'high': np.concatenate([
-                    np.array([3000], dtype=np.float32),
+                    np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.ones(6, dtype=np.float32)
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
                 ])
             },
             'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
@@ -200,11 +209,14 @@ class Config:
                 # 'th_disc_high': np.ones(8, dtype=np.float32)
             },
             'obs_bounds': {
-                'low': np.zeros(14, dtype=np.float32),
+                 'low': np.concatenate([
+                        np.array([0]*8, dtype=np.float32),                 
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                    ]),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.ones(6, dtype=np.float32)
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
                 ])
             },
             'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
