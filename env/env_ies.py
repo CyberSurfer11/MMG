@@ -24,7 +24,8 @@ class CombinedEnergyEnv(gym.Env):
         self.hs_cost = Config.get_shared('hs_cost')
         self.ms_cost = Config.get_shared('ms_cost')
         self.ls_cost = Config.get_shared('ls_cost')
-        self.grid_cost = Config.get_shared('grid_cost')
+
+        self.grid_cost = Config.get_shared('grid_buy')
         self.grid_co2 = Config.get_shared('grid_co2')
 
         # 电力系统参数
@@ -105,12 +106,13 @@ class CombinedEnergyEnv(gym.Env):
     def step(self, action):
         # print('action',action)
         # 解析动作
-        p_gas, G_imp = action[0:2]
+        p_gas, a_ees = action[0:2]
         th_cont = action[2:19]
-        th_disc = np.array([1]*8)
+        th_disc = np.array([1]*8) # 离散动作自己设定
 
         # ---- 热力系统计算 ----
-        # 锅炉燃料消耗
+        # 锅炉ss,hs_imp,ms_imp,ls_imp,抽ST01-05,凝ST01-04，06,lv01-03
+
         bf = th_cont[0]
         fuel_cons = self._calc_boiler_fuel(bf)
         # 太阳能产生低压蒸汽
@@ -119,55 +121,56 @@ class CombinedEnergyEnv(gym.Env):
         sol_ls = self._calc_solar_ls(solar_out)
         # 蒸汽涡轮机功率与蒸汽外送
         turb_pows, steam_ext = self._calc_turbine_power(th_cont, th_disc)
+
         # 更新热状态
+        # gas燃气消耗量,
+        # fuel消耗量+6个蒸汽轮机power,p2p交易价格
         self.state[1] = fuel_cons
         self.state[2:8] = turb_pows[:6]
-        self.state[9] = sol_ls
+        # self.state[9] = sol_ls
 
         # ---- 电力系统计算 ----
         wind_pow = self._calc_wind_power(self.wind_speed_day[self.time_step])
         gas_cons = self._calc_gas_consum(p_gas)
+
         # 用电需求由无蒸汽外送的电机驱动
-        P_ele = np.where(np.array(steam_ext)==0, self.Gst_user, 0) #?
+        P_ele = np.where(np.array(steam_ext)==0, self.Gst_user, 0) #后8个电动机功率数组
         self.state[0] = gas_cons
-        self.state[8] = wind_pow
 
         # 电盈余
-        P_n = self.elec_load[self.time_step] - (wind_pow + gas_cons)
+        P_n = self.elec_load[self.time_step] - (wind_pow + p_gas)
+
         # 碳盈余
-        C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 8800
+        # C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 8800
 
 
         # ---- 奖励与约束 ----
-        total_cost = (
-            self.grid_cost*G_imp + gas_cons*self.ng_cost +
+        operate_cost = (
+            gas_cons*self.ng_cost +
             fuel_cons*self.fuel_cost + th_cont[1]*self.hs_cost +
             th_cont[2]*self.ms_cost + th_cont[3]*self.ls_cost
         )
-        total_emis = (
-            self.grid_co2*G_imp + p_gas*self.ng_co2 +
-            fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls
+        carbon_emis = (
+            p_gas*self.ng_co2 +
+            fuel_cons*self.fuel_cost + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[3]*self.gls
         )
 
         # pen_e = self._constraint_e(wind_pow, G_imp, p_gas, P_ele)
+
         pen_h = self._constraint_h(th_cont, turb_pows, steam_ext, sol_ls)
 
         total_pen = pen_h
-        reward = -(total_cost + total_emis*0.01)*1e-3
 
-
-
-        info = {'total_cost': total_cost,
-                'total_emis': total_emis,
+        info = {'operate_cost': operate_cost,
+                'carbon_emis': carbon_emis,
                 'total_penalty': total_pen,
                 'P_n':P_n,
-                'C_n':C_n
                 }
 
         # 步进
         self.time_step += 1
         done = self.time_step >= self.max_step
-        return self.state.copy(), reward, done, info
+        return self.state.copy(), done, info
 
     # 计算交易之后的reward
     def compute_trade_cost(self,
@@ -197,7 +200,10 @@ class CombinedEnergyEnv(gym.Env):
         # 碳交易成本
         cost_carbon = (carbon_price_buy  * max(c_n, 0) - carbon_price_sell * min(c_n, 0))
 
-        return cost_elec + cost_carbon,self.state.copy()
+        r_trade = cost_elec + cost_carbon
+
+        return r_trade,self.state.copy()
+    
 
 
     # ------------------ 内部计算方法 ------------------

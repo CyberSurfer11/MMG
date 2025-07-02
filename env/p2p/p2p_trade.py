@@ -29,26 +29,26 @@ def _mmr_price(
     total_buy_qty: float,
     total_sell_qty: float,
     net_qty: float,
-    grid_price_buy: float,
-    grid_price_sell: float,
+    price_buy: float,
+    price_sell: float,
 ) -> Tuple[float, float]:
     """计算单一商品(电或碳)在一个时隙的统一买/卖价。"""
-    mid_price = 0.5 * (grid_price_buy + grid_price_sell)
+    mid_price = 0.5 * (price_buy + price_sell)
     price_buy  = mid_price  # 初值
     price_sell = mid_price
 
     if net_qty > 1e-9:                    # 市场整体短缺
         price_buy = (
-            mid_price * abs(total_sell_qty) + grid_price_buy * net_qty
+            mid_price * abs(total_sell_qty) + price_buy * net_qty
         ) / total_buy_qty
     elif net_qty < -1e-9:                 # 市场整体过剩
         price_sell = (
-            mid_price * total_buy_qty + grid_price_sell * abs(net_qty)
+            mid_price * total_buy_qty + price_sell * abs(net_qty)
         ) / abs(total_sell_qty)
 
     # Clamp 确保边界: grid_sell < price_sell ≤ mid ≤ price_buy < grid_buy
-    price_buy  = max(min(price_buy,  grid_price_buy  - 1e-9), mid_price)
-    price_sell = min(max(price_sell, grid_price_sell + 1e-9), mid_price)
+    price_buy  = max(min(price_buy,  price_buy  - 1e-9), mid_price)
+    price_sell = min(max(price_sell, price_sell + 1e-9), mid_price)
     return price_buy, price_sell
 
 def settle(

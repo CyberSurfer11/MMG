@@ -19,8 +19,24 @@ class Config:
         'hs_cost': np.float32(0.0164),
         'ms_cost': np.float32(0.01495),
         'ls_cost': np.float32(0.01161),
+
         'grid_cost': np.float32(0.0821),
-        'grid_co2': np.float32(0.4019),
+        
+        # 电价
+        'grid_buy':np.array([0.058]*7 + [0.102] + [0.164]*3 + [0.102]*2 +
+                            [0.164]*3 + [0.102]*2 + [0.164]*4 + [0.058]*2,
+                            dtype=np.float32
+                            ),
+
+        'grid_sell':np.float(0.048),
+
+        'grid_co2':np.array([
+                            0.60, 0.50, 0.60, 0.60, 0.70, 0.80, 0.80, 0.80,
+                            0.80, 0.80, 0.80, 0.90, 0.90, 0.90, 0.90, 1.10,
+                            1.10, 1.10, 0.90, 0.90, 0.80, 0.80, 0.80, 0.7
+                            ],
+                            dtype=np.float32
+                            ),
 
         'Hgt': np.float32(10.0),
         'ng_co2': np.float32(0.48),
@@ -76,14 +92,14 @@ class Config:
             'solar_area': np.float32(50000.0),
 
             'action_bounds': {
-                'ele_low': np.zeros(2, dtype=np.float32),
+                'ele_low': np.zeros(2, dtype=np.float32), # p_gas,a_ees
                 'ele_high': np.array([2000, 2000], dtype=np.float32),
-                'th_cont_low': np.zeros(17, dtype=np.float32),
+                'th_cont_low': np.zeros(17, dtype=np.float32), 
                 'th_cont_high': np.concatenate([
-                    [2e6, 7e5, 6e6, 2e5],
-                    [2e6, 6e5, 2e6, 1e6, 6e5],
-                    [5e5, 5e5, 6e5, 6e5, 1e6],
-                    [1e5, 5e4, 5e4]
+                    [2e6, 7e5, 6e6, 2e5], # 锅炉ss,hs_imp,ms_imp,ls_imp
+                    [2e6, 6e5, 2e6, 1e6, 6e5], # 抽ST01-05
+                    [5e5, 5e5, 6e5, 6e5, 1e6], # 凝ST01-04，06
+                    [1e5, 5e4, 5e4] #lv01-03
                 ]).astype(np.float32),
                 # 'th_disc_low': np.zeros(8, dtype=np.float32),
                 # 'th_disc_high': np.ones(8, dtype=np.float32)
@@ -94,9 +110,9 @@ class Config:
                         np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
                     ]),
                 'high': np.concatenate([
-                    np.array([2000], dtype=np.float32),
-                    np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
+                    np.array([2000], dtype=np.float32), # gas燃气消耗量
+                    np.array([1e7] + [1e8]*6, dtype=np.float32), # fuel消耗量+6个蒸汽轮机power
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32) # p2p交易价格
                 ])
             },
             'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
@@ -197,7 +213,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
-                'ele_high': np.array([2000, 2000], dtype=np.float32),
+                'ele_high': np.array([2000, 2000], dtype=np.float32), # 
                 'th_cont_low': np.zeros(17, dtype=np.float32),
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5],
