@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 import pandas as pd
-from env import Config,da_market_clearing
+from env import Config
 
 class CombinedEnergyEnv(gym.Env):
     """
@@ -98,7 +98,7 @@ class CombinedEnergyEnv(gym.Env):
         self.state = np.zeros(self.observation_space.shape, dtype=np.float32)
 
     def reset(self):
-        self.state.fill(0)
+        self.state = self.observation_space.low.copy()
         self.time_step = 0
         return self.state.copy()
 

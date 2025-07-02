@@ -1,5 +1,5 @@
 import numpy as np
-from env.env_ies import CombinedEnergyEnv
+from env import CombinedEnergyEnv
 from env import da_market_clearing, get_market_prices
 from single_ies import C_SAC_
 
@@ -58,11 +58,12 @@ def train_multi_agents(
         ag = C_SAC_(env, gamma=gamma, tau=tau)
         agents.append(ag)
 
+    # 获取时序定价
+    tou_buy, fit_sell, car_buy, car_sell = get_market_prices()
+
     # 全局训练轮
     for rnd in range(1, max_rounds+1):
         print(f"== 轮次 {rnd}/{max_rounds} ==")
-        # 获取时序定价
-        tou_buy, fit_sell, car_buy, car_sell = get_market_prices()
         # 重置 envs
         states = [ag.env.reset() for ag in agents]
         dones  = [False]*len(agents)
@@ -80,14 +81,16 @@ def train_multi_agents(
             # 并行执行 env.step，并收集 P_n/C_n 和本地 reward/emis
             local_rs   = []
             local_emis = []
+            local_cost_operate = []
             infos      = []
             P_buys, P_sells, C_buys, C_sells = [], [], [], []
 
             for idx, (ag, a) in enumerate(zip(agents, actions)):
                 # 只更新部分状态，获得 P_n/C_n 等
-                ns_partial, r_loc, done, info = ag.env.step(a)
+                _, r_loc, done, info = ag.env.step(a)
                 local_rs.append(r_loc)
                 local_emis.append(info['total_emis'])
+                local_cost_operate.append(info['total_cost'])
                 infos.append(info)
                 dones[idx] = done
 
