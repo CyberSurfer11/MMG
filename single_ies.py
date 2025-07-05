@@ -353,94 +353,143 @@ class C_SAC_:
             ]
 
         return sts, conts, rews, nsts, dns.squeeze(-1), W, cons.squeeze(-1)
-
-    def train(self, max_episodes=50, max_steps=24, save_freq=500):
+    
+    def _update_from_batch(self, batch):
         """
-        完整的训练循环，包括 Critic、约束 Critic、Actor、alpha 和 lambda 更新，以及目标网络软更新。
-        不保存模型、不绘图。
+        用一批经验 batch 更新所有网络：
+          1) Q1/Q2 Critic
+          2) Constraint Critic
+          3) Actor & alpha
+          4) 更新 λ
+          5) 软更新目标网络
         """
-        episode = 0
+        states, conts, rews, next_states, dones, ISW, cons = batch
 
-        rewards_hist = []
-        constraint_hist = []
-        actor_losses = []
-        critic_losses = []
-        constraint_losses = []
+        # 1) Critic 更新
+        with tf.GradientTape(persistent=True) as tape_q:
+            q1_loss, q2_loss, _, _ = self.compute_critic_loss(
+                states, conts, rews, next_states, dones, cons
+            )
+        grads_q1 = tape_q.gradient(q1_loss, self.q1_critic.trainable_variables)
+        grads_q2 = tape_q.gradient(q2_loss, self.q2_critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(grads_q1, self.q1_critic.trainable_variables))
+        self.critic_optimizer.apply_gradients(zip(grads_q2, self.q2_critic.trainable_variables))
+        del tape_q
 
-        while episode < max_episodes:
-            state = self.env.reset()
-            done = False
-            total_reward = 0.0
-            total_penalty = 0.0
+        # 2) Constraint Critic 更新
+        with tf.GradientTape() as tape_c:
+            qc_loss = self.compute_constraint_critic_loss(
+                states, conts, cons, next_states, dones
+            )
+        grads_qc = tape_c.gradient(qc_loss, self.qc_critic.trainable_variables)
+        self.qc_optimizer.apply_gradients(zip(grads_qc, self.qc_critic.trainable_variables))
 
-            while not done:
-                # 1. 选择动作
-                cont_action, sampled_cont_action = self.act(state)
-                action = cont_action
-                # print(action)
+        # 3) Actor & alpha 更新
+        with tf.GradientTape(persistent=True) as tape_a:
+            actor_loss, alpha_loss = self.compute_actor_loss(states)
+        grads_a     = tape_a.gradient(actor_loss, self.actor.trainable_variables)
+        alpha_grad  = tape_a.gradient(alpha_loss, [self.alpha])
+        self.actor_optimizer.apply_gradients(zip(grads_a, self.actor.trainable_variables))
+        self.alpha_optimizer.apply_gradients(zip(alpha_grad, [self.alpha]))
+        # 保证 alpha 正数
+        self.alpha.assign(tf.clip_by_value(self.alpha, 1e-6, np.inf))
+        del tape_a
 
-                # 2. 与环境交互
-                next_state, reward, done, info = self.env.step(action)
-                penalty = info['total_penalty']
+        # 4) λ 更新
+        qc_expect = tf.reduce_mean(self.qc_critic([states, conts]))
+        self.lambda_.assign(self.update_lambda(self.lambda_, qc_expect))
 
-                # 3. 存储经验：存actor的动作
-                self.remember(state, sampled_cont_action, reward, next_state, done, penalty)
+        # 5) 软更新目标网络
+        # self.soft_update_all_targets()
+        return q1_loss.numpy(), q2_loss.numpy(), qc_loss.numpy(), actor_loss.numpy()
 
-                # 4. 采样并更新网络
-                batch = self.replay()
-                if batch is not None:
-                    states, conts, rewards, next_states, dones, ISW, penalties = batch
+    # def train(self, max_episodes=50, max_steps=24, save_freq=500):
+    #     """
+    #     完整的训练循环，包括 Critic、约束 Critic、Actor、alpha 和 lambda 更新，以及目标网络软更新。
+    #     不保存模型、不绘图。
+    #     """
+    #     episode = 0
 
-                    # 4.1 更新 Critic 网络
-                    with tf.GradientTape(persistent=True) as tape_q:
-                        q1_loss, q2_loss, q1, q2 = self.compute_critic_loss(
-                            states, conts, rewards, next_states, dones, penalties
-                        )
-                    grads_q1 = tape_q.gradient(q1_loss, self.q1_critic.trainable_variables)
-                    self.critic_optimizer.apply_gradients(zip(grads_q1, self.q1_critic.trainable_variables))
-                    grads_q2 = tape_q.gradient(q2_loss, self.q2_critic.trainable_variables)
-                    self.critic_optimizer.apply_gradients(zip(grads_q2, self.q2_critic.trainable_variables))
+    #     rewards_hist = []
+    #     constraint_hist = []
+    #     actor_losses = []
+    #     critic_losses = []
+    #     constraint_losses = []
 
-                    # 4.2 更新约束 Critic 网络
-                    with tf.GradientTape() as tape_c:
-                        qc_loss = self.compute_constraint_critic_loss(
-                            states, conts, penalties, next_states, dones
-                        )
-                    grads_qc = tape_c.gradient(qc_loss, self.qc_critic.trainable_variables)
-                    self.qc_optimizer.apply_gradients(zip(grads_qc, self.qc_critic.trainable_variables))
+    #     while episode < max_episodes:
+    #         state = self.env.reset()
+    #         done = False
+    #         total_reward = 0.0
+    #         total_penalty = 0.0
 
-                    # 4.3 更新 Actor 和 alpha
-                    with tf.GradientTape(persistent=True) as tape_a:
-                        actor_loss, alpha_loss = self.compute_actor_loss(states)
-                    grads_a = tape_a.gradient(actor_loss, self.actor.trainable_variables)
-                    self.actor_optimizer.apply_gradients(zip(grads_a, self.actor.trainable_variables))
-                    alpha_grad = tape_a.gradient(alpha_loss, [self.alpha])
-                    self.alpha_optimizer.apply_gradients(zip(alpha_grad, [self.alpha]))
-                    # 限制 alpha 范围
-                    self.alpha.assign(tf.clip_by_value(self.alpha, 1e-6, np.inf))
+    #         while not done:
+    #             # 1. 选择动作
+    #             cont_action, sampled_cont_action = self.act(state)
+    #             action = cont_action
+    #             # print(action)
 
-                    # 4.4 更新 lambda
-                    qc_expect = tf.reduce_mean(self.qc_critic([states, conts]))
-                    self.lambda_.assign(self.update_lambda(self.lambda_, qc_expect))
+    #             # 2. 与环境交互
+    #             next_state, reward, done, info = self.env.step(action)
+    #             penalty = info['total_penalty']
 
-                    # 4.5 软更新目标网络
-                    self.soft_update_all_targets()
+    #             # 3. 存储经验：存actor的动作
+    #             self.remember(state, sampled_cont_action, reward, next_state, done, penalty)
 
-                    # 4.6 保存损失
-                    actor_losses.append(actor_loss.numpy())
-                    critic_losses.append((q1_loss.numpy() + q2_loss.numpy()) / 2)
-                    constraint_losses.append(qc_loss.numpy())
+    #             # 4. 采样并更新网络
+    #             batch = self.replay()
+    #             if batch is not None:
+    #                 states, conts, rewards, next_states, dones, ISW, penalties = batch
 
-                # 5. 进入下一个时间步
-                state = next_state
-                total_reward += reward
-                total_penalty += penalty
+    #                 # 4.1 更新 Critic 网络
+    #                 with tf.GradientTape(persistent=True) as tape_q:
+    #                     q1_loss, q2_loss, q1, q2 = self.compute_critic_loss(
+    #                         states, conts, rewards, next_states, dones, penalties
+    #                     )
+    #                 grads_q1 = tape_q.gradient(q1_loss, self.q1_critic.trainable_variables)
+    #                 self.critic_optimizer.apply_gradients(zip(grads_q1, self.q1_critic.trainable_variables))
+    #                 grads_q2 = tape_q.gradient(q2_loss, self.q2_critic.trainable_variables)
+    #                 self.critic_optimizer.apply_gradients(zip(grads_q2, self.q2_critic.trainable_variables))
 
-            episode += 1
-            rewards_hist.append(total_reward)
-            constraint_hist.append(total_penalty)
+    #                 # 4.2 更新约束 Critic 网络
+    #                 with tf.GradientTape() as tape_c:
+    #                     qc_loss = self.compute_constraint_critic_loss(
+    #                         states, conts, penalties, next_states, dones
+    #                     )
+    #                 grads_qc = tape_c.gradient(qc_loss, self.qc_critic.trainable_variables)
+    #                 self.qc_optimizer.apply_gradients(zip(grads_qc, self.qc_critic.trainable_variables))
 
-            print(f"Episode {episode}: Reward {total_reward:.2f}, Penalty {total_penalty:.2f}")
+    #                 # 4.3 更新 Actor 和 alpha
+    #                 with tf.GradientTape(persistent=True) as tape_a:
+    #                     actor_loss, alpha_loss = self.compute_actor_loss(states)
+    #                 grads_a = tape_a.gradient(actor_loss, self.actor.trainable_variables)
+    #                 self.actor_optimizer.apply_gradients(zip(grads_a, self.actor.trainable_variables))
+    #                 alpha_grad = tape_a.gradient(alpha_loss, [self.alpha])
+    #                 self.alpha_optimizer.apply_gradients(zip(alpha_grad, [self.alpha]))
+    #                 # 限制 alpha 范围
+    #                 self.alpha.assign(tf.clip_by_value(self.alpha, 1e-6, np.inf))
+
+    #                 # 4.4 更新 lambda
+    #                 qc_expect = tf.reduce_mean(self.qc_critic([states, conts]))
+    #                 self.lambda_.assign(self.update_lambda(self.lambda_, qc_expect))
+
+    #                 # 4.5 软更新目标网络
+    #                 self.soft_update_all_targets()
+
+    #                 # 4.6 保存损失
+    #                 actor_losses.append(actor_loss.numpy())
+    #                 critic_losses.append((q1_loss.numpy() + q2_loss.numpy()) / 2)
+    #                 constraint_losses.append(qc_loss.numpy())
+
+    #             # 5. 进入下一个时间步
+    #             state = next_state
+    #             total_reward += reward
+    #             total_penalty += penalty
+
+    #         episode += 1
+    #         rewards_hist.append(total_reward)
+    #         constraint_hist.append(total_penalty)
+
+    #         print(f"Episode {episode}: Reward {total_reward:.2f}, Penalty {total_penalty:.2f}")
 
 
 

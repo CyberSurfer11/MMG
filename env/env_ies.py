@@ -163,7 +163,7 @@ class CombinedEnergyEnv(gym.Env):
 
         info = {'operate_cost': operate_cost,
                 'carbon_emis': carbon_emis,
-                'total_penalty': total_pen,
+                'penalty': total_pen,
                 'P_n':P_n,
                 }
 
