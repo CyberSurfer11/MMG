@@ -93,7 +93,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32), # p_gas,a_ees
-                'ele_high': np.array([2000, 2000], dtype=np.float32),
+                'ele_high': np.array([7500, 2000], dtype=np.float32),
                 'th_cont_low': np.zeros(17, dtype=np.float32), 
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5], # 锅炉ss,hs_imp,ms_imp,ls_imp
@@ -107,18 +107,20 @@ class Config:
             'obs_bounds': {
                  'low': np.concatenate([
                         np.array([0]*8, dtype=np.float32),                 
-                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32),# p2p交易价格  
+                        np.array([0.0], dtype=np.float32) # 电负荷   
                     ]),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32), # gas燃气消耗量
                     np.array([1e7] + [1e8]*6, dtype=np.float32), # fuel消耗量+6个蒸汽轮机power
-                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32) # p2p交易价格
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32), # p2p交易价格
+                    np.array([11000], dtype=np.float32)
                 ])
             },
-            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'} # 大型电力负荷数据
         },
         'IES2': {
-            'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
+            'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32), #和4463
             'Mwhrs_ss': np.float32(394002.0),
             'base_r_ss': np.float32(72534.0),
             'base_r_hs': np.float32(89060.0),
@@ -133,7 +135,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
-                'ele_high': np.array([2000, 2000], dtype=np.float32),
+                'ele_high': np.array([2600, 2000], dtype=np.float32),
                 'th_cont_low': np.zeros(17, dtype=np.float32),
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5],
@@ -147,15 +149,17 @@ class Config:
             'obs_bounds': {
                  'low': np.concatenate([
                         np.array([0]*8, dtype=np.float32),                 
-                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32),
+                        np.array([0.0], dtype=np.float32) # 电负荷         
                     ]),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32),
+                    np.array([4700], dtype=np.float32) 
                 ])
             },
-            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_PGE.xlsx', 'column': 'DEMAND_MW'} # 中型电力负荷数据
         },
         'IES3': {
             'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
@@ -173,7 +177,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
-                'ele_high': np.array([2000, 2000], dtype=np.float32),
+                'ele_high': np.array([1100, 2000], dtype=np.float32),
                 'th_cont_low': np.zeros(17, dtype=np.float32),
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5],
@@ -187,15 +191,17 @@ class Config:
             'obs_bounds': {
                  'low': np.concatenate([
                         np.array([0]*8, dtype=np.float32),                 
-                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32)        
+                        np.array([0.048, 0.048, 0.0035, 0.0035], dtype=np.float32),
+                        np.array([0.0], dtype=np.float32)        
                     ]),
                 'high': np.concatenate([
                     np.array([2000], dtype=np.float32),
                     np.array([1e7] + [1e8]*6, dtype=np.float32),
-                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
+                    np.array([0.164,0.164,0.007,0.007], dtype=np.float32),
+                    np.array([1800], dtype=np.float32)
                 ])
             },
-            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_SCL.xlsx', 'column': 'DEMAND_MW'} # 小型电力负荷数据
         },
         'IES4': {
             'Gst_user': np.array([1557, 990, 437, 1001, 308, 51, 41, 78], dtype=np.float32),
@@ -235,7 +241,7 @@ class Config:
                     np.array([0.164,0.164,0.007,0.007], dtype=np.float32)
                 ])
             },
-            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'}
+            'elec_load': {'path': 'data/load_data/by_area_1h_cleaned/forecast_BCHA.xlsx', 'column': 'DEMAND_MW'} # 大型电力负荷数据
         },     
     }
 
