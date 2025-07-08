@@ -93,7 +93,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32), # p_gas,a_ees
-                'ele_high': np.array([7500, 2000], dtype=np.float32),
+                'ele_high': np.array([11000, 2000], dtype=np.float32),
                 'th_cont_low': np.zeros(17, dtype=np.float32), 
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5], # 锅炉ss,hs_imp,ms_imp,ls_imp
@@ -135,7 +135,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
-                'ele_high': np.array([2600, 2000], dtype=np.float32),
+                'ele_high': np.array([4700, 2000], dtype=np.float32),
                 'th_cont_low': np.zeros(17, dtype=np.float32),
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5],
@@ -177,7 +177,7 @@ class Config:
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
-                'ele_high': np.array([1100, 2000], dtype=np.float32),
+                'ele_high': np.array([1800, 2000], dtype=np.float32),
                 'th_cont_low': np.zeros(17, dtype=np.float32),
                 'th_cont_high': np.concatenate([
                     [2e6, 7e5, 6e6, 2e5],
