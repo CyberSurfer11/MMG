@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from env import CombinedEnergyEnv
 from env import da_market_clearing, get_market_prices_car
 from single_ies import C_SAC_
+from env.carbon import get_carbon_quota_split
 
 # 获取时序定价
 tou_buy, fit_sell, car_buy, car_sell, grid_co2 = get_market_prices_car()
@@ -120,6 +121,7 @@ def train_multi_agents(
             P_buys, P_sells, C_buys, C_sells = [], [], [], []
             P_n_record = [0.0]*len(agents)
             C_n_record = [0.0]*len(agents)
+            P_load_record = [0.0]*len(agents)
 
             for idx, (ag, a) in enumerate(zip(agents, actions)):
                 # 只更新部分状态，获得 P_n 等
@@ -132,6 +134,7 @@ def train_multi_agents(
                 P_n = info['P_n']
                 P_n_record[idx] = P_n
                 local_emis[idx] = info['carbon_emis']
+                P_load_record[idx] = info['P_load']
 
                 # 占位价格存在旧 state 的 8-11
                 pb, ps, cb, cs = states[idx][8], states[idx][9],states[idx][10], states[idx][11]
@@ -150,7 +153,8 @@ def train_multi_agents(
             for idx,v in ele_res.items():
                 p_grid_trade = v['grid_qty']
                 car_emis = local_emis[idx]
-                C_n = compute_c_n(p_grid_trade,car_emis,step,MG_car=8800)
+                MG_car = get_carbon_quota_split(P_load_record[idx]).get('quota_total',8800)
+                C_n = compute_c_n(p_grid_trade,car_emis,step,MG_car=MG_car)
                 C_n_record[idx] = C_n
 
                 if C_n > 0: C_buys.append((idx, cb,  C_n))

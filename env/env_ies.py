@@ -127,7 +127,6 @@ class CombinedEnergyEnv(gym.Env):
         # fuel消耗量+6个蒸汽轮机power,p2p交易价格
         self.state[1] = fuel_cons
         self.state[2:8] = turb_pows[:6]
-        # self.state[9] = sol_ls
 
         # ---- 电力系统计算 ----
         wind_pow = self._calc_wind_power(self.wind_speed_day[self.time_step])
@@ -136,9 +135,10 @@ class CombinedEnergyEnv(gym.Env):
         # 用电需求由无蒸汽外送的电机驱动
         P_ele = np.where(np.array(steam_ext)==0, self.Gst_user, 0) #后8个电动机功率数组
         self.state[0] = gas_cons
+        self.state[12] = self.elec_load[self.time_step] + np.sum(P_ele)  # 电力需求
 
         # 电盈余
-        P_n = self.elec_load[self.time_step] - (wind_pow + p_gas)
+        P_n = self.state[12] - (wind_pow + p_gas)
 
         # 碳盈余
         # C_n = self.grid_co2*G_imp + p_gas*self.ng_co2 +fuel_cons*self.grid_co2 + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[2]*self.gls - 8800
@@ -165,6 +165,7 @@ class CombinedEnergyEnv(gym.Env):
                 'carbon_emis': carbon_emis,
                 'penalty': total_pen,
                 'P_n':P_n,
+                'P_load':self.state[12]
                 }
 
         # 步进

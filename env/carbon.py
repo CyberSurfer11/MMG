@@ -3,7 +3,7 @@ import numpy as np
 import os
 from glob import glob
 
-def calculate_carbon_quota_split(Pe, Ph, gamma=1.0,
+def calculate_carbon_quota_split(Pe, gamma=1.0,
                                  epsilon_e=0.5, epsilon_h=0.22):
     """
     分别计算电负荷和热负荷对应的碳配额（单位：kgCO₂）
