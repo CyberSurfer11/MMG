@@ -44,6 +44,8 @@ class CombinedEnergyEnv(gym.Env):
         self.ngt = Config.get_scenario(scenario,'ngt')
         self.clv = Config.get_scenario(scenario,'clv')
 
+        self.avg_P = Config.get_scenario(scenario,'avg_p')
+
         # 数据序列
         self.wind_speed_day = Config.load_data('wind_speed')      # 在 config
 

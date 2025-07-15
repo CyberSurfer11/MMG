@@ -90,6 +90,8 @@ class Config:
             'Fbmax': np.float32(150000.0),
             'nb' : np.float32(0.97),
             'solar_area': np.float32(50000.0),
+            'avg_P':np.float32(7400),
+            'avg_H':np.float32(7400),
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32), # p_gas,a_ees
@@ -132,6 +134,8 @@ class Config:
             'Fbmax': np.float32(150000.0),
             'nb' : np.float32(0.97),
             'solar_area': np.float32(50000.0),
+            'avg_P':np.float32(2600),
+            'avg_H':np.float32(7400),
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
@@ -174,6 +178,8 @@ class Config:
             'Fbmax': np.float32(150000.0),
             'nb' : np.float32(0.97),
             'solar_area': np.float32(50000.0),
+            'avg_P':np.float32(1100),
+            'avg_H':np.float32(7400),
 
             'action_bounds': {
                 'ele_low': np.zeros(2, dtype=np.float32),
