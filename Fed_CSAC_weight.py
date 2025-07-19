@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from env import CombinedEnergyEnv
 from env import da_market_clearing, get_market_prices_car
 from single_ies import C_SAC_
-from env.carbon import get_carbon_quota_split
+from env.carbon import calculate_carbon_quota_split
 
 # 获取时序定价
 tou_buy, fit_sell, car_buy, car_sell, grid_co2 = get_market_prices_car()
@@ -150,7 +150,7 @@ def train_multi_agents(
             for idx,v in ele_res.items():
                 p_grid_trade = v['grid_qty']
                 car_emis = local_emis[idx]
-                MG_car = get_carbon_quota_split(P_load_record[idx]).get('quota_total',8800)
+                MG_car = calculate_carbon_quota_split(P_load_record[idx]).get('quota_total',8800)
                 C_n = compute_c_n(p_grid_trade,car_emis,step,MG_car=MG_car)
                 C_n_record[idx] = C_n
 
@@ -236,6 +236,6 @@ def train_multi_agents(
 
 
 if __name__=='__main__':
-    scenarios=['IES1','IES2','IES3','IES4']
+    scenarios=['IES1','IES2','IES3']
     # scenarios=['IES1']
     agents = train_multi_agents(scenarios)
