@@ -213,9 +213,9 @@ class C_SAC_:
     def compute_critic_loss(self, states, actions, rewards, next_states, done_flags, constraint):
         if self.action_dim_discrete>0:
             cont_act, disc_act = actions
-            q1,q2 = self.q1_critic([states, cont_act, disc_act])
+            q1,q2 = self.critic([states, cont_act, disc_act])
         else:
-            q1,q2 = self.q1_critic([states, actions])
+            q1,q2 = self.critic([states, actions])
 
         target_q = self.compute_target_q(rewards, next_states, done_flags, constraint)
         q1_loss = tf.reduce_mean((q1 - target_q) ** 2)
