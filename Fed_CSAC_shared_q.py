@@ -8,46 +8,109 @@ from env.carbon import calculate_carbon_quota_split
 # 获取时序定价
 tou_buy, fit_sell, car_buy, car_sell, grid_co2 = get_market_prices_car()
 
-def federated_weighted_average(agents):
+def federated_weighted_average(agents, personal_steps=1):
     """
-    FedWAvg-电负荷版：只用 avg_P（平均电负荷）作为权重。
-    要求每个 ag.env 事先有 avg_P 属性。
+    等权联邦聚合 + 个性化更新（最小改动版）
+    - 等权聚合共享浅层（Actor_Shared_*, Critic_Shared_*；兼容旧前缀 Shared_*）。
+    - 在本函数内对个性化深层做本地更新：临时冻结共享层，调用现有 ag.replay() / ag._update_from_batch()。
+    - 不改动多IES流程和单系统类，只使用其已有接口。
     """
-    # 1) 计算每个 agent 的权重系数 w_i，仅基于 avg_P
-    load_sums = np.array([ag.env.avg_P for ag in agents], dtype=np.float64)  # 只取电负荷
-    total = load_sums.sum()
-    weights = load_sums / total    # 归一化为和为1的权重数组
 
-    # 辅助函数：对一层权重列表做加权平均
-    def weighted_average_layer(layer_weights_list):
-        return sum(w * lw for w, lw in zip(weights, layer_weights_list))
+    # --------- 小工具：按前缀冻结/解冻 ----------
+    def set_trainable_by_prefix(model, prefixes, trainable):
+        if isinstance(prefixes, str):
+            prefixes = (prefixes,)
+        for l in model.layers:
+            if any(l.name.startswith(p) for p in prefixes):
+                l.trainable = trainable
 
-    # 2) 聚合 actor
-    actor_weights = [ag.actor.get_weights() for ag in agents]
-    avg_actor = [
-        weighted_average_layer(layer_layers)
-        for layer_layers in zip(*actor_weights)
-    ]
+    # --------- 小工具：构建“等权聚合”的层名->权重字典（仅匹配指定前缀） ----------
+    def build_equal_avg_weights(models, prefixes):
+        if isinstance(prefixes, str):
+            prefixes = (prefixes,)
+        # 收集所有匹配的层名
+        name_set = set()
+        for m in models:
+            for l in m.layers:
+                if any(l.name.startswith(p) for p in prefixes):
+                    name_set.add(l.name)
+        # 逐层做等权平均（只对有权重的层）
+        name_to_avg = {}
+        for lname in name_set:
+            per_agent_ws = []
+            for m in models:
+                layer = next((x for x in m.layers if x.name == lname), None)
+                if layer is None:
+                    per_agent_ws.append(None)
+                else:
+                    per_agent_ws.append(layer.get_weights())
+            if all((w is None or len(w) == 0) for w in per_agent_ws):
+                continue
+            template = next((w for w in per_agent_ws if (w is not None and len(w) > 0)), None)
+            if template is None:
+                continue
+            n = sum(1 for w in per_agent_ws if (w is not None and len(w) > 0))
+            avg_ws = []
+            for arr_idx in range(len(template)):
+                acc = None
+                for wlist in per_agent_ws:
+                    if wlist is None or len(wlist) == 0:
+                        continue
+                    arr = wlist[arr_idx]
+                    acc = arr if acc is None else (acc + arr)
+                avg_ws.append(acc / float(n))
+            name_to_avg[lname] = avg_ws
+        return name_to_avg
 
-    # 3) 聚合 Q1 critic
-    q1_weights = [ag.q1_critic.get_weights() for ag in agents]
-    avg_q1 = [
-        weighted_average_layer(layer_layers)
-        for layer_layers in zip(*q1_weights)
-    ]
+    # --------- 1) 先做“个性化深层”的本地更新（冻结共享层，只训深层） ----------
+    # 共享层前缀（新命名 & 兼容老命名）
+    ACTOR_SHARED_PREFIX = "Actor_Shared_"
+    CRITIC_SHARED_PREFIXES = ("Critic_Shared_", "Shared_")
 
-    # 4) 聚合 Q2 critic
-    q2_weights = [ag.q2_critic.get_weights() for ag in agents]
-    avg_q2 = [
-        weighted_average_layer(layer_layers)
-        for layer_layers in zip(*q2_weights)
-    ]
-
-    # 5) 下发加权参数并软更新
     for ag in agents:
-        ag.actor.set_weights(avg_actor)
-        ag.q1_critic.set_weights(avg_q1)
-        ag.q2_critic.set_weights(avg_q2)
+        # 冻结共享层
+        set_trainable_by_prefix(ag.actor, ACTOR_SHARED_PREFIX, False)
+        set_trainable_by_prefix(ag.q1_critic, CRITIC_SHARED_PREFIXES, False)
+        set_trainable_by_prefix(ag.q2_critic, CRITIC_SHARED_PREFIXES, False)
+
+        # 个性化更新若干步（只会更新未被冻结的“深层”）
+        for _ in range(max(1, personal_steps)):
+            batch = ag.replay()
+            if batch is not None:
+                ag._update_from_batch(batch)
+
+        # 恢复共享层可训练标志（不改变外部训练行为）
+        set_trainable_by_prefix(ag.actor, ACTOR_SHARED_PREFIX, True)
+        set_trainable_by_prefix(ag.q1_critic, CRITIC_SHARED_PREFIXES, True)
+        set_trainable_by_prefix(ag.q2_critic, CRITIC_SHARED_PREFIXES, True)
+
+    # --------- 2) 对“共享浅层”做等权聚合并下发 ----------
+    # Actor 共享浅层
+    actor_models = [ag.actor for ag in agents]
+    actor_avg = build_equal_avg_weights(actor_models, prefixes=ACTOR_SHARED_PREFIX)
+
+    # Critic 共享浅层（Q1 / Q2）
+    q1_models = [ag.q1_critic for ag in agents]
+    q2_models = [ag.q2_critic for ag in agents]
+    q1_avg = build_equal_avg_weights(q1_models, prefixes=CRITIC_SHARED_PREFIXES)
+    q2_avg = build_equal_avg_weights(q2_models, prefixes=CRITIC_SHARED_PREFIXES)
+
+    # 应用平均权重到所有 agent 的共享层（个性化层保持本地参数）
+    def apply_avg(model, avg_dict):
+        name_to_layer = {l.name: l for l in model.layers}
+        for lname, avg_ws in avg_dict.items():
+            layer = name_to_layer.get(lname)
+            if layer is not None and avg_ws is not None and len(avg_ws) > 0:
+                try:
+                    layer.set_weights(avg_ws)
+                except Exception:
+                    pass
+
+    for ag in agents:
+        apply_avg(ag.actor, actor_avg)
+        apply_avg(ag.q1_critic, q1_avg)
+        apply_avg(ag.q2_critic, q2_avg)
+        # 目标网络软更新保持不变
         ag.soft_update_all_targets()
 
 
@@ -56,7 +119,6 @@ def compute_c_n(p_grid_trade,car_emis,t,MG_car=8800):
         C_n = grid_co2[t]*p_grid_trade + car_emis - MG_car # 8800占位，不同MG8800位置不一样
     else:
         C_n = car_emis - 8800
-        
     return C_n
 
 def train_multi_agents(
@@ -73,7 +135,6 @@ def train_multi_agents(
       每步: 所有 MG act-> step -> 集中撮合 -> compute_trade_cost -> remember -> update
       每 agg_interval 轮后 FedAvg
     """
-
 
     # 初始化 agents
     agents = []
@@ -139,7 +200,7 @@ def train_multi_agents(
                 if P_n > 0:  P_buys.append((idx, pb,  P_n))
                 else:        P_sells.append((idx, ps, -P_n))
 
-# ============================== 注意碳和电的索引是否对应 =====================================
+            # ============================== 注意碳和电的索引是否对应 =====================================
             # 市场撮合
             # 电
             lambda_e_buy  = tou_buy[step]
@@ -163,7 +224,7 @@ def train_multi_agents(
                 lambda_buy=car_buy,lambda_sell=car_sell)
             
 
-# ====================================================================================================================
+            # ===================================================================================================================
             # 执行交易成本计算及完整状态更新，并存储/训练
             next_states = []
             for idx, ag in enumerate(agents):
