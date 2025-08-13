@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import Adam
 # 引入新的 IES 环境
 from env import CombinedEnergyEnv
 
-from network import Memory,network
+from network2 import Memory,network
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -87,6 +87,10 @@ class C_SAC_:
         self.qc_critic = self.network.constraint_critic(critic_units)
         self.qc_critic_target = self.network.constraint_critic(critic_units)
         self.qc_optimizer = Adam(learning_rate=lr_critic)
+
+        # 初始化目标网络权重
+        self.critic_target.set_weights(self.critic.get_weights())
+        self.qc_critic_target.set_weights(self.qc_critic.get_weights())
 
         self.gamma = gamma
         self.tau = np.float32(tau)
@@ -217,7 +221,10 @@ class C_SAC_:
         else:
             q1,q2 = self.critic([states, actions])
 
-        target_q = self.compute_target_q(rewards, next_states, done_flags, constraint)
+        # target_q = self.compute_target_q(rewards, next_states, done_flags, constraint)
+        target_q = tf.stop_gradient(
+        self.compute_target_q(rewards, next_states, done_flags, constraint)
+        )
         q1_loss = tf.reduce_mean((q1 - target_q) ** 2)
         q2_loss = tf.reduce_mean((q2 - target_q) ** 2)
 
@@ -355,8 +362,8 @@ class C_SAC_:
             q1_loss, q2_loss, _, _ = self.compute_critic_loss(
                 states, conts, rews, next_states, dones, cons
             )
-        # 把两个头的 loss 相加
-        critic_loss = q1_loss + q2_loss
+            # 把两个头的 loss 相加
+            critic_loss = q1_loss + q2_loss
 
         # 对整个 critic 模型求梯度并更新
         grads = tape_q.gradient(critic_loss, self.critic.trainable_variables)
