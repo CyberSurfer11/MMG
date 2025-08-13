@@ -13,7 +13,6 @@ def federated_weighted_average(agents, personal_steps=1):
     等权联邦聚合 + 个性化更新（最小改动版）
     - 等权聚合共享浅层（Actor_Shared_*, Critic_Shared_*；兼容旧前缀 Shared_*）。
     - 在本函数内对个性化深层做本地更新：临时冻结共享层，调用现有 ag.replay() / ag._update_from_batch()。
-    - 不改动多IES流程和单系统类，只使用其已有接口。
     """
 
     # --------- 小工具：按前缀冻结/解冻 ----------
