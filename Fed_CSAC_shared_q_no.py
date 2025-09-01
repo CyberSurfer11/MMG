@@ -69,8 +69,8 @@ def federated_weighted_average(agents, personal_steps=1):
     for ag in agents:
         # 冻结共享层
         set_trainable_by_prefix(ag.actor, ACTOR_SHARED_PREFIX, False)
-        # === 修改点 #1：critic 是单个模型 ===
-        set_trainable_by_prefix(ag.critic, CRITIC_SHARED_PREFIXES, False)
+        set_trainable_by_prefix(ag.q1_critic, CRITIC_SHARED_PREFIXES, False)
+        set_trainable_by_prefix(ag.q2_critic, CRITIC_SHARED_PREFIXES, False)
 
         # 个性化更新若干步（只会更新未被冻结的“深层”）
         for _ in range(max(1, personal_steps)):
@@ -80,18 +80,19 @@ def federated_weighted_average(agents, personal_steps=1):
 
         # 恢复共享层可训练标志（不改变外部训练行为）
         set_trainable_by_prefix(ag.actor, ACTOR_SHARED_PREFIX, True)
-        # === 修改点 #2：critic 是单个模型 ===
-        set_trainable_by_prefix(ag.critic, CRITIC_SHARED_PREFIXES, True)
+        set_trainable_by_prefix(ag.q1_critic, CRITIC_SHARED_PREFIXES, True)
+        set_trainable_by_prefix(ag.q2_critic, CRITIC_SHARED_PREFIXES, True)
 
     # --------- 2) 对“共享浅层”做等权聚合并下发 ----------
     # Actor 共享浅层
     actor_models = [ag.actor for ag in agents]
     actor_avg = build_equal_avg_weights(actor_models, prefixes=ACTOR_SHARED_PREFIX)
 
-    # Critic 共享浅层（单模型双头：只聚合主干浅层）
-    # === 修改点 #3：critic 平台化为单个模型列表 ===
-    critic_models = [ag.critic for ag in agents]
-    critic_avg = build_equal_avg_weights(critic_models, prefixes=CRITIC_SHARED_PREFIXES)
+    # Critic 共享浅层（Q1 / Q2）
+    q1_models = [ag.q1_critic for ag in agents]
+    q2_models = [ag.q2_critic for ag in agents]
+    q1_avg = build_equal_avg_weights(q1_models, prefixes=CRITIC_SHARED_PREFIXES)
+    q2_avg = build_equal_avg_weights(q2_models, prefixes=CRITIC_SHARED_PREFIXES)
 
     # 应用平均权重到所有 agent 的共享层（个性化层保持本地参数）
     def apply_avg(model, avg_dict):
@@ -106,8 +107,8 @@ def federated_weighted_average(agents, personal_steps=1):
 
     for ag in agents:
         apply_avg(ag.actor, actor_avg)
-        # === 修改点 #4：下发到单个 critic 模型 ===
-        apply_avg(ag.critic, critic_avg)
+        apply_avg(ag.q1_critic, q1_avg)
+        apply_avg(ag.q2_critic, q2_avg)
         # 目标网络软更新保持不变
         ag.soft_update_all_targets()
 
@@ -116,12 +117,12 @@ def compute_c_n(p_grid_trade,car_emis,t,MG_car=8800):
     if p_grid_trade > 0:
         C_n = grid_co2[t]*p_grid_trade + car_emis - MG_car # 8800占位，不同MG8800位置不一样
     else:
-        C_n = car_emis - MG_car
+        C_n = car_emis - 8800
     return C_n
 
 def train_multi_agents(
     scenarios,
-    max_rounds=5000,
+    max_rounds=10,
     max_steps=24,
     agg_interval=1,
     gamma=0.99,
@@ -179,9 +180,6 @@ def train_multi_agents(
             C_n_record = [0.0]*len(agents)
             P_load_record = [0.0]*len(agents)
 
-            pb_rec = [0.0]*n_agents; ps_rec = [0.0]*n_agents
-            cb_rec = [0.0]*n_agents; cs_rec = [0.0]*n_agents
-
             for idx, (ag, a) in enumerate(zip(agents, actions)):
                 # 只更新部分状态，获得 P_n 等
                 _, done, info = ag.env.step(a)
@@ -196,11 +194,10 @@ def train_multi_agents(
                 P_load_record[idx] = info['P_load']
 
                 # 占位价格存在旧 state 的 8-11
-                pb_rec[idx] = states[idx][8];  ps_rec[idx] = states[idx][9]
-                cb_rec[idx] = states[idx][10]; cs_rec[idx] = states[idx][11]
+                pb, ps, cb, cs = states[idx][8], states[idx][9],states[idx][10], states[idx][11]
                 # 电碳盈余有正负
-                if P_n > 0:  P_buys.append((idx, pb_rec[idx],  P_n))
-                else:        P_sells.append((idx, ps_rec[idx], -P_n))
+                if P_n > 0:  P_buys.append((idx, pb,  P_n))
+                else:        P_sells.append((idx, ps, -P_n))
 
             # ============================== 注意碳和电的索引是否对应 =====================================
             # 市场撮合
@@ -210,15 +207,15 @@ def train_multi_agents(
                 P_buys, P_sells,
                 lambda_buy=lambda_e_buy, lambda_sell=fit_sell)
             
-            for id,v in ele_res.items():
+            for idx,v in ele_res.items():
                 p_grid_trade = v['grid_qty']
-                car_emis = local_emis[id]
-                MG_car = calculate_carbon_quota_split(P_load_record[id]).get('quota_total',37000)
+                car_emis = local_emis[idx]
+                MG_car = calculate_carbon_quota_split(P_load_record[idx]).get('quota_total',8800)
                 C_n = compute_c_n(p_grid_trade,car_emis,step,MG_car=MG_car)
-                C_n_record[id] = C_n
+                C_n_record[idx] = C_n
 
-                if C_n > 0: C_buys.append((idx, cb_rec[id],  C_n))
-                else:       C_sells.append((idx, cs_rec[id],  -C_n))
+                if C_n > 0: C_buys.append((idx, cb,  C_n))
+                else:       C_buys.append((idx, cs,  -C_n))
 
             # 碳
             car_res, car_p_m_buy, car_p_m_sell, car_summary = da_market_clearing(
@@ -268,104 +265,32 @@ def train_multi_agents(
 
         # Episode 结束：打印并记录每个 agent 的指标
         for ies in range(n_agents):
-            print(f" Agent{ies} | Reward: {total_reward_agent[ies]:.3f} | Penalty: {total_penalty_agent[ies]:.3f}")
-            reward_hist[ies].append(total_reward_agent[ies])
-            constraint_hist[ies].append(total_penalty_agent[ies])
+            print(f" Agent{ies} | Reward: {total_reward_agent[idx]:.3f} | Penalty: {total_penalty_agent[idx]:.3f}")
+            reward_hist[idx].append(total_reward_agent[idx])
+            constraint_hist[idx].append(total_penalty_agent[idx])
 
         # 周期联邦平均
         if rnd % agg_interval == 0:
             print(f"-- 执行联邦聚合 (轮次 {rnd}) --")
             federated_weighted_average(agents)
     
-    # # 训练结束后画图
-    # for idx in range(n_agents):
-    #     plt.figure()
-    #     plt.plot(reward_hist[idx],        label='Reward')
-    #     plt.plot(constraint_hist[idx],    label='Penalty')
-    #     plt.title(f'Agent {idx} Episode Metrics')
-    #     plt.xlabel('Episode'); plt.ylabel('Value')
-    #     plt.legend(); plt.show()
-
-    # for idx in range(n_agents):
-    #     plt.figure()
-    #     plt.plot(critic_loss_hist[idx], label='Critic Loss')
-    #     plt.plot(actor_loss_hist[idx],  label='Actor Loss')
-    #     plt.plot(qc_loss_hist[idx],     label='Constraint Loss')
-    #     plt.title(f'Agent {idx} Loss Curves')
-    #     plt.xlabel('Training Steps'); plt.ylabel('Loss')
-    #     plt.legend(); plt.show()
-
-    # 训练结束后画图 —— 每个变量单独一张图
-    import os
-
-    # 确保输出目录存在
-    outdir = "image_result"
-    os.makedirs(outdir, exist_ok=True)
-
-    def draw_and_save(y, title, ylabel, fname, label=None, xlabel=None):
-        if not y:  # 空数据直接跳过
-            return
+    # 训练结束后画图
+    for idx in range(n_agents):
         plt.figure()
-        if label is None:
-            plt.plot(y)
-        else:
-            plt.plot(y, label=label)
-            plt.legend()
-        if xlabel: plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(title)
-        plt.grid(True)
-        plt.tight_layout()
-        # 保存 PNG
-        save_path = os.path.join(outdir, fname)
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
-        plt.show()   # 需要同时显示就保留；若不显示可改为 plt.close()
-        # plt.close()  # 如果不想弹图窗口，把上面的 plt.show() 注释掉，并打开这一行
-
-    # 训练结束后画图 —— 每个变量单独一张图，并保存
-    for idx in range(n_agents):
-        draw_and_save(
-            reward_hist[idx],
-            title=f"Agent {idx} - Reward per Episode",
-            ylabel="Reward",
-            fname=f"agent{idx}_reward.png",
-            label="Reward",
-            xlabel="Episode"
-        )
-        draw_and_save(
-            constraint_hist[idx],
-            title=f"Agent {idx} - Penalty per Episode",
-            ylabel="Penalty",
-            fname=f"agent{idx}_penalty.png",
-            label="Penalty",
-            xlabel="Episode"
-        )
+        plt.plot(reward_hist[idx],        label='Reward')
+        plt.plot(constraint_hist[idx],    label='Penalty')
+        plt.title(f'Agent {idx} Episode Metrics')
+        plt.xlabel('Episode'); plt.ylabel('Value')
+        plt.legend(); plt.show()
 
     for idx in range(n_agents):
-        draw_and_save(
-            critic_loss_hist[idx],
-            title=f"Agent {idx} - Critic Loss",
-            ylabel="Loss",
-            fname=f"agent{idx}_critic_loss.png",
-            label="Critic Loss",
-            xlabel="Training Steps"
-        )
-        draw_and_save(
-            actor_loss_hist[idx],
-            title=f"Agent {idx} - Actor Loss",
-            ylabel="Loss",
-            fname=f"agent{idx}_actor_loss.png",
-            label="Actor Loss",
-            xlabel="Training Steps"
-        )
-        draw_and_save(
-            qc_loss_hist[idx],
-            title=f"Agent {idx} - Constraint(Qc) Loss",
-            ylabel="Loss",
-            fname=f"agent{idx}_qc_loss.png",
-            label="Constraint Loss",
-            xlabel="Training Steps"
-        )
+        plt.figure()
+        plt.plot(critic_loss_hist[idx], label='Critic Loss')
+        plt.plot(actor_loss_hist[idx],  label='Actor Loss')
+        plt.plot(qc_loss_hist[idx],     label='Constraint Loss')
+        plt.title(f'Agent {idx} Loss Curves')
+        plt.xlabel('Training Steps'); plt.ylabel('Loss')
+        plt.legend(); plt.show()
 
     return agents
 
@@ -373,4 +298,4 @@ def train_multi_agents(
 if __name__=='__main__':
     scenarios=['IES1','IES2','IES3']
     # scenarios=['IES1']
-    agents = train_multi_agents(scenarios,max_rounds=5)
+    agents = train_multi_agents(scenarios)

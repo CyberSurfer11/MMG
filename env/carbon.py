@@ -10,7 +10,7 @@ def calculate_carbon_quota_split(Pe, gamma=1.0,
     """
     Pe = np.array(Pe)
     quota_electric = gamma * epsilon_e * Pe
-    quota_heat = np.full_like(Pe, gamma * 88000)
+    quota_heat = np.full_like(Pe, gamma * 37000)
     quota_total = quota_electric + quota_heat
 
     return {
