@@ -149,6 +149,11 @@ def train_multi_agents(
     reward_hist        = [ [] for _ in range(n_agents) ]
     constraint_hist    = [ [] for _ in range(n_agents) ]
 
+    critic_loss_ep_hist = [[] for _ in range(n_agents)]
+    actor_loss_ep_hist  = [[] for _ in range(n_agents)]
+    qc_loss_ep_hist     = [[] for _ in range(n_agents)]
+
+
     # 全局训练轮
     for rnd in range(1, max_rounds+1):
         print(f"== 轮次 {rnd}/{max_rounds} ==")
@@ -273,6 +278,14 @@ def train_multi_agents(
             reward_hist[ies].append(total_reward_agent[ies])
             constraint_hist[ies].append(total_penalty_agent[ies])
 
+            if critic_loss_hist[ies]:
+                critic_loss_ep_hist[ies].append(critic_loss_hist[ies][-1])
+            if actor_loss_hist[ies]:
+                actor_loss_ep_hist[ies].append(actor_loss_hist[ies][-1])
+            if qc_loss_hist[ies]:
+                qc_loss_ep_hist[ies].append(qc_loss_hist[ies][-1])
+
+
         # 周期联邦平均
         if rnd % agg_interval == 0:
             print(f"-- 执行联邦聚合 (轮次 {rnd}) --")
@@ -344,28 +357,28 @@ def train_multi_agents(
 
     for idx in range(n_agents):
         draw_and_save(
-            critic_loss_hist[idx],
+            critic_loss_ep_hist[idx],
             title=f"Agent {idx} - Critic Loss",
             ylabel="Loss",
             fname=f"agent{idx}_critic_loss.png",
             label="Critic Loss",
-            xlabel="Training Steps"
+            xlabel="Episode"
         )
         draw_and_save(
-            actor_loss_hist[idx],
+            actor_loss_ep_hist[idx],
             title=f"Agent {idx} - Actor Loss",
             ylabel="Loss",
             fname=f"agent{idx}_actor_loss.png",
             label="Actor Loss",
-            xlabel="Training Steps"
+            xlabel="Episode"
         )
         draw_and_save(
-            qc_loss_hist[idx],
+            qc_loss_ep_hist[idx],
             title=f"Agent {idx} - Constraint(Qc) Loss",
             ylabel="Loss",
             fname=f"agent{idx}_qc_loss.png",
             label="Constraint Loss",
-            xlabel="Training Steps"
+            xlabel="Episode"
         )
 
     return agents
@@ -374,4 +387,4 @@ def train_multi_agents(
 if __name__=='__main__':
     scenarios=['IES1','IES2','IES3']
     # scenarios=['IES1']
-    agents = train_multi_agents(scenarios,max_rounds=5000)
+    agents = train_multi_agents(scenarios,max_rounds=10)
