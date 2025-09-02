@@ -387,4 +387,4 @@ def train_multi_agents(
 if __name__=='__main__':
     scenarios=['IES1','IES2','IES3']
     # scenarios=['IES1']
-    agents = train_multi_agents(scenarios,max_rounds=10)
+    agents = train_multi_agents(scenarios,max_rounds=5000)

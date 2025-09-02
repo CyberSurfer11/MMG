@@ -68,6 +68,7 @@ class CombinedEnergyEnv(gym.Env):
         self.ghs = Config.get_shared('ghs')
         self.gms = Config.get_shared('gms')
         self.gls = Config.get_shared('gls')
+        self.gfuel = Config.get_shared('gfuel')
 
         # 蒸汽需求
         self.Mwhrs_ss = Config.get_scenario(scenario,'Mwhrs_ss')
@@ -154,7 +155,7 @@ class CombinedEnergyEnv(gym.Env):
         )
         carbon_emis = (
             p_gas*self.ng_co2 +
-            fuel_cons*self.fuel_cost + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[3]*self.gls
+            fuel_cons*self.gfuel + th_cont[1]*self.ghs + th_cont[2] * self.gms + th_cont[3]*self.gls
         )
 
         # pen_e = self._constraint_e(wind_pow, G_imp, p_gas, P_ele)
@@ -198,10 +199,10 @@ class CombinedEnergyEnv(gym.Env):
         self.state[11] = carbon_price_sell
 
         # 电力交易成本
-        cost_elec = (elec_price_buy  * max(p_n, 0) - elec_price_sell * min(p_n, 0))
+        cost_elec = (elec_price_buy  * max(p_n, 0) + elec_price_sell * min(p_n, 0))
 
         # 碳交易成本
-        cost_carbon = (carbon_price_buy  * max(c_n, 0) - carbon_price_sell * min(c_n, 0))
+        cost_carbon = (carbon_price_buy  * max(c_n, 0) + carbon_price_sell * min(c_n, 0))
 
         r_trade = cost_elec + cost_carbon
 
@@ -243,7 +244,7 @@ class CombinedEnergyEnv(gym.Env):
         # 提取连续变量
         ext = cont[4:9]      # ST01-05 抽汽
         cond = cont[9:14]    # ST01-04, ST06 凝汽
-        p = np.zeros(7, dtype=np.float32)
+        p = np.zeros(6, dtype=np.float32)
         # ST01-ST06
         p[0] = ((ext[0]+cond[0])*self.Hss - ext[0]*self.Hhs - cond[0]*self.Hsc) / 3600
         p[1] = ((ext[1]+cond[1])*self.Hss - ext[1]*self.Hms - cond[1]*self.Hsc) / 3600
