@@ -165,10 +165,11 @@ def train_multi_agents(
         while not all(dones) and step < max_steps:
             # 并行选动作
             actions = []
+            samples = []  
             for ag, s in zip(agents, states):
                 a, sampled = ag.act(s)
-                ag._last_sample = sampled #?
                 actions.append(a)
+                samples.append(sampled)
 
             # 并行执行 env.step，并收集 P_n/C_n 和本地 reward/emis
             local_emis = [0.0]*len(agents)
@@ -210,15 +211,15 @@ def train_multi_agents(
                 P_buys, P_sells,
                 lambda_buy=lambda_e_buy, lambda_sell=fit_sell)
             
-            for id,v in ele_res.items():
+            for i,v in ele_res.items():
                 p_grid_trade = v['grid_qty']
-                car_emis = local_emis[id]
-                MG_car = calculate_carbon_quota_split(P_load_record[id]).get('quota_total',37000)
+                car_emis = local_emis[i]
+                MG_car = calculate_carbon_quota_split(P_load_record[i]).get('quota_total',37000)
                 C_n = compute_c_n(p_grid_trade,car_emis,step,MG_car=MG_car)
-                C_n_record[id] = C_n
+                C_n_record[i] = C_n
 
-                if C_n > 0: C_buys.append((idx, cb_rec[id],  C_n))
-                else:       C_sells.append((idx, cs_rec[id],  -C_n))
+                if C_n > 0: C_buys.append((i, cb_rec[i],  C_n))
+                else:       C_sells.append((i, cs_rec[i],  -C_n))
 
             # 碳
             car_res, car_p_m_buy, car_p_m_sell, car_summary = da_market_clearing(
@@ -249,7 +250,7 @@ def train_multi_agents(
 
                 # 记忆使用完整状态
                 ag.remember(
-                    states[idx], ag._last_sample,
+                    states[idx], samples[idx],
                     new_r, full_state, dones[idx], info['penalty']
                 )
                 # 更新网络
@@ -373,4 +374,4 @@ def train_multi_agents(
 if __name__=='__main__':
     scenarios=['IES1','IES2','IES3']
     # scenarios=['IES1']
-    agents = train_multi_agents(scenarios,max_rounds=5)
+    agents = train_multi_agents(scenarios,max_rounds=5000)
