@@ -47,8 +47,9 @@ class C_SAC_:
             lambda_max=100.0,
             delta_lambda_min=-0.001,
             delta_lambda_max=0.001,
-            target_entropy=-25,
-            rmax=2960 * 1e-4
+            target_entropy=-26,
+            rmax=3020 * 1e-4
+            
     ):
         self.rmax = rmax
         self.env = env
