@@ -1,0 +1,14 @@
+# Core ML and Scientific Computing
+numpy>=1.21.0
+pandas>=1.3.0
+gym>=0.21.0
+
+# Visualization
+matplotlib>=3.5.0
+imageio>=2.9.0
+
+# Standard Python libraries (usually included but may need explicit installation in some environments)
+# Note: collections, typing, datetime, os, glob, json, warnings, random are part of Python standard library
+
+# Optional but recommended for better performance
+# scipy>=1.7.0  # Uncomment if needed for advanced scientific computing
