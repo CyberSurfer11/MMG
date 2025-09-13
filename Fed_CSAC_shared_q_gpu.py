@@ -429,7 +429,7 @@ def train_multi_agents_gpu(
                 P_buys, P_sells,
                 lambda_buy=lambda_e_buy, lambda_sell=fit_sell)
             
-            print(f'ele_res:{ele_res}')
+            # print(f'ele_res:{ele_res}')
             
             for i, v in ele_res.items():
                 p_grid_trade = v['grid_qty']
@@ -446,7 +446,7 @@ def train_multi_agents_gpu(
                 C_buys, C_sells,
                 lambda_buy=car_buy, lambda_sell=car_sell)
 
-            print(f'car_res:{car_res}')
+            # print(f'car_res:{car_res}')
             # 执行交易成本计算及完整状态更新，并存储/训练
             next_states = []
             for idx, ag in enumerate(agents):
@@ -676,7 +676,7 @@ if __name__ == '__main__':
     
     agents = train_multi_agents_gpu(
         scenarios, 
-        max_rounds=1, 
+        max_rounds=5000, 
         device=device
     )
     
