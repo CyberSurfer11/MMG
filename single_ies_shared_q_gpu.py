@@ -96,8 +96,8 @@ class C_SAC_GPU:
         self.qc_optimizer = optim.Adam(self.qc_critic.parameters(), lr=lr_critic)
 
         # 初始化目标网络权重
-        self.critic_target.load_state_dict(self.critic.state_dict())
-        self.qc_critic_target.load_state_dict(self.qc_critic.state_dict())
+        self.network.update_target_weights(self.critic,     self.critic_target,     tau=1.0)  
+        self.network.update_target_weights(self.qc_critic,  self.qc_critic_target,  tau=1.0)
 
         self.gamma = gamma
         self.tau = tau
@@ -267,37 +267,56 @@ class C_SAC_GPU:
         return qc_loss
 
     def compute_actor_loss(self, states):
-        """计算Actor损失"""
+        """计算Actor损失（只更新Actor与alpha，不更新Critic/Qc；alpha对logp断图）"""
+        # 1) Actor前向（需要梯度）
         if self.action_dim_discrete > 0:
             mu, sigma, sc, sd, logits = self.actor(states)
         else:
             mu, sigma, sc = self.actor(states)
-            
-        # Q estimates
-        if self.action_dim_discrete > 0:
-            q1, q2 = self.critic(states, sc, sd)
-            qc = self.qc_critic(states, sc, sd)
-        else:
-            q1, q2 = self.critic(states, sc)
-            qc = self.qc_critic(states, sc)
-        
-        min_q = torch.min(q1, q2)
-        
-        # log probs
-        logp_c = -0.5*((sc-mu)/(sigma+1e-8))**2 - torch.log(sigma+1e-8) - 0.5*np.log(2*np.pi)
-        logp = torch.sum(logp_c, dim=-1, keepdim=True)
 
-        if self.action_dim_discrete > 0:
-            logp_d = torch.log_softmax(logits, dim=-1)
-            idx = torch.argmax(sd, dim=-1)
-            logp_d = torch.sum(logp_d * torch.nn.functional.one_hot(idx, self.action_dim_discrete).float(), dim=-1, keepdim=True)
-            logp += logp_d
+        # 2) 临时冻结 Critic / Qc，并设为 eval()（降低策略梯度方差）
+        was_train_c  = self.critic.training
+        was_train_qc = self.qc_critic.training
+        for p in self.critic.parameters():     p.requires_grad_(False)
+        for p in self.qc_critic.parameters():  p.requires_grad_(False)
+        self.critic.eval(); self.qc_critic.eval()
 
-        entropy = -self.alpha * logp
-        actor_loss = -torch.mean(min_q + entropy - self.lambda_ * qc)
-        alpha_loss = -torch.mean(self.alpha * (logp + self.target_entropy))
+        try:
+            # 3) 用冻结的 Critic / Qc 打分（梯度只会通过sc回Actor，不会进到Critic参数）
+            if self.action_dim_discrete > 0:
+                q1, q2 = self.critic(states, sc, sd)
+                qc     = self.qc_critic(states, sc, sd)
+            else:
+                q1, q2 = self.critic(states, sc)
+                qc     = self.qc_critic(states, sc)
+
+            min_q = torch.min(q1, q2)
+
+            # 4) log π(a|s)（未做tanh雅可比修正的简化版；如需更准可后续补）
+            logp_c = -0.5 * ((sc - mu) / (sigma + 1e-8))**2 - torch.log(sigma + 1e-8) - 0.5 * np.log(2*np.pi)
+            logp   = torch.sum(logp_c, dim=-1, keepdim=True)
+
+            if self.action_dim_discrete > 0:
+                logp_d = torch.log_softmax(logits, dim=-1)
+                idx    = torch.argmax(sd, dim=-1)
+                logp  += torch.sum(logp_d * torch.nn.functional.one_hot(idx, self.action_dim_discrete).float(),
+                                dim=-1, keepdim=True)
+
+            entropy    = -self.alpha.detach() * logp
+            actor_loss = -(min_q + entropy - (self.lambda_.detach()) * qc).mean()   
+
+            # 5) α只更新α本身；对logp断图，避免对Actor二次反传
+            alpha_loss = -(self.alpha * (logp.detach() + self.target_entropy)).mean()
+
+        finally:
+            # 6) 恢复 Critic / Qc 的梯度与模式
+            for p in self.critic.parameters():     p.requires_grad_(True)
+            for p in self.qc_critic.parameters():  p.requires_grad_(True)
+            if was_train_c:  self.critic.train()
+            if was_train_qc: self.qc_critic.train()
 
         return actor_loss, alpha_loss
+
 
     def update_lambda(self, lambda_value, qc_expectation):
         """更新拉格朗日乘子 λ"""
